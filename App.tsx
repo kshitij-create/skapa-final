@@ -5,6 +5,9 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { MainNavigator } from './src/navigation/MainNavigator';
 import { COLORS } from './src/theme';
 
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { OnboardingNavigator } from './src/navigation/OnboardingNavigator';
+
 const MyTheme = {
   ...DefaultTheme,
   colors: {
@@ -13,12 +16,17 @@ const MyTheme = {
   },
 };
 
+const RootStack = createNativeStackNavigator();
+
 export default function App() {
   return (
     <SafeAreaProvider>
       <StatusBar style="light" />
       <NavigationContainer theme={MyTheme}>
-        <MainNavigator />
+        <RootStack.Navigator screenOptions={{ headerShown: false }}>
+          <RootStack.Screen name="Onboarding" component={OnboardingNavigator} />
+          <RootStack.Screen name="Main" component={MainNavigator} />
+        </RootStack.Navigator>
       </NavigationContainer>
     </SafeAreaProvider>
   );

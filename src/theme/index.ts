@@ -1,13 +1,15 @@
 export const COLORS = {
   background: '#050505',
-  surface: '#0a0a0c',
-  surfaceLight: 'rgba(255, 255, 255, 0.05)',
+  surface: '#0c0806', // specific to onboarding cards
+  surfaceLight: 'rgba(255, 255, 255, 0.03)',
   surfaceLighter: 'rgba(255, 255, 255, 0.1)',
   text: '#ffffff',
   textMuted: 'rgba(255, 255, 255, 0.5)',
   textSubtle: 'rgba(255, 255, 255, 0.4)',
   border: 'rgba(255, 255, 255, 0.05)',
-  primary: '#a855f7', // purple-500
+  primary: '#ffae45', // gradient start
+  primaryDark: '#f05c00', // gradient end
+  accentGlow: '#ff6a00',
   secondary: '#3b82f6', // blue-500
   success: '#22c55e', // green-500
   danger: '#ef4444', // red-500

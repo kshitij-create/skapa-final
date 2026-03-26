@@ -6,6 +6,7 @@ import { BlurView } from 'expo-blur';
 import { HomeScreen } from '../screens/HomeScreen';
 import { LivePresenceScreen } from '../screens/LivePresenceScreen';
 import { ListeningRoomScreen } from '../screens/ListeningRoomScreen';
+import { RoomsScreen } from '../screens/RoomsScreen';
 import { COLORS } from '../theme';
 
 const Tab = createBottomTabNavigator();
@@ -20,6 +21,7 @@ const CustomTabBar = ({ state, descriptors, navigation }: any) => {
         {state.routes.map((route: any, index: number) => {
           const { options } = descriptors[route.key];
           const isFocused = state.index === index;
+          const isCenter = index === 2; // Map is the 3rd tab (index 2)
 
           const onPress = () => {
             const event = navigation.emit({
@@ -33,6 +35,21 @@ const CustomTabBar = ({ state, descriptors, navigation }: any) => {
             }
           };
 
+          if (isCenter) {
+            // Render the uplifted Map button — floats above the pill
+            return (
+              <View key={route.key} style={styles.centerTabWrapper}>
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={onPress}
+                  style={styles.centerTabButton}
+                >
+                  <Ionicons name="map-outline" size={26} color="#000" />
+                </TouchableOpacity>
+              </View>
+            );
+          }
+
           return (
             <TouchableOpacity
               key={route.key}
@@ -40,7 +57,7 @@ const CustomTabBar = ({ state, descriptors, navigation }: any) => {
               onPress={onPress}
               style={[
                 styles.tabButton,
-                isFocused && styles.tabButtonActive
+                isFocused && styles.tabButtonActive,
               ]}
             >
               {options.tabBarIcon && options.tabBarIcon({ focused: isFocused })}
@@ -60,31 +77,54 @@ export const MainNavigator = () => {
         headerShown: false,
       }}
     >
-      <Tab.Screen 
-        name="Home" 
-        component={HomeScreen} 
+      {/* Tab 1: Home */}
+      <Tab.Screen
+        name="Home"
+        component={HomeScreen}
         options={{
           tabBarIcon: ({ focused }: any) => (
-            <Ionicons name="home-outline" size={28} color={focused ? "#fff" : "rgba(255,255,255,0.4)"} />
+            <Ionicons
+              name="home-outline"
+              size={22}
+              color={focused ? '#fff' : 'rgba(255,255,255,0.4)'}
+            />
           ),
         }}
       />
-      <Tab.Screen 
-        name="Map" 
-        component={LivePresenceScreen} 
+      {/* Tab 2: Discover / Grid */}
+      <Tab.Screen
+        name="Discover"
+        component={RoomsScreen}
         options={{
           tabBarIcon: ({ focused }: any) => (
-            <Ionicons name="map-outline" size={28} color={focused ? "#fff" : "rgba(255,255,255,0.4)"} />
+            <Ionicons
+              name="grid-outline"
+              size={22}
+              color={focused ? '#fff' : 'rgba(255,255,255,0.4)'}
+            />
           ),
         }}
       />
-      <Tab.Screen 
-        name="Room" 
-        component={ListeningRoomScreen} 
+      {/* Tab 3: Map (center, uplifted white circle) */}
+      <Tab.Screen
+        name="Map"
+        component={LivePresenceScreen}
+        options={{
+          tabBarIcon: () => null, // Rendered manually in CustomTabBar
+        }}
+      />
+      {/* Tab 4: Rooms / Radio with badge */}
+      <Tab.Screen
+        name="Rooms"
+        component={ListeningRoomScreen}
         options={{
           tabBarIcon: ({ focused }: any) => (
             <View style={{ position: 'relative' }}>
-              <Ionicons name="pulse-outline" size={28} color={focused ? "#fff" : "rgba(255,255,255,0.4)"} />
+              <Ionicons
+                name="radio-outline"
+                size={22}
+                color={focused ? '#fff' : 'rgba(255,255,255,0.4)'}
+              />
               <View style={styles.badgeContainer}>
                 <Text style={styles.badgeText}>5</Text>
               </View>
@@ -92,14 +132,15 @@ export const MainNavigator = () => {
           ),
         }}
       />
-      <Tab.Screen 
-        name="Profile" 
-        component={DummyScreen} 
+      {/* Tab 5: Profile */}
+      <Tab.Screen
+        name="Profile"
+        component={DummyScreen}
         options={{
           tabBarIcon: () => (
-            <Image 
-              source={{ uri: 'https://i.pravatar.cc/150?u=user1' }} 
-              style={styles.profileImage} 
+            <Image
+              source={{ uri: 'https://i.pravatar.cc/150?u=user1' }}
+              style={styles.profileImage}
             />
           ),
         }}
@@ -113,41 +154,66 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 24,
     alignSelf: 'center',
-    width: '90%',
-    borderRadius: 9999, // fully rounded
-    overflow: 'hidden',
+    width: '85%',
+    borderRadius: 9999,
+    overflow: 'visible', // lets the uplifted button overflow the pill
     elevation: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.3,
     shadowRadius: 20,
     zIndex: 30,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
   },
   blurView: {
     flexDirection: 'row',
     backgroundColor: 'rgba(18, 18, 22, 0.9)',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 9999,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    overflow: 'visible',
   },
   tabButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
   },
   tabButtonActive: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
+  // Placeholder so the pill lays out evenly with 5 items
+  centerTabWrapper: {
+    width: 56,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // The actual uplifted white circle — positioned above the pill
+  centerTabButton: {
+    position: 'absolute',
+    bottom: 10,   // rises above the pill surface
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#ffffff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#ffffff',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 12,
+  },
   badgeContainer: {
     position: 'absolute',
     top: -6,
     right: -8,
-    backgroundColor: '#ef4444', // red-500
+    backgroundColor: '#ef4444',
     borderRadius: 9999,
     borderWidth: 1,
     borderColor: '#121216',
@@ -164,9 +230,9 @@ const styles = StyleSheet.create({
     lineHeight: 11,
   },
   profileImage: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     opacity: 0.8,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
