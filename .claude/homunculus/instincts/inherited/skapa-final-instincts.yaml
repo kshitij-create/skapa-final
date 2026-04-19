@@ -1,0 +1,389 @@
+# Instincts generated from https://github.com/kshitij-create/skapa-final
+# Generated: 2026-04-19T16:35:41.204Z
+# Version: 2.0
+# NOTE: This file supplements (does not replace) any existing curated instincts.
+# High-confidence manually curated instincts should be preserved alongside these.
+
+---
+id: skapa-final-commit-length
+trigger: "when writing a commit message"
+confidence: 0.6
+domain: git
+source: repo-analysis
+source_repo: https://github.com/kshitij-create/skapa-final
+---
+
+# Skapa Final Commit Length
+
+## Action
+
+Keep commit messages concise (~42 characters)
+
+## Evidence
+
+- Average commit message length: 42 chars
+- Based on 3 commits
+
+---
+id: skapa-final-naming-files
+trigger: "when creating a new file"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/kshitij-create/skapa-final
+---
+
+# Skapa Final Naming Files
+
+## Action
+
+Use PascalCase naming convention
+
+## Evidence
+
+- Analyzed file naming patterns in repository
+- Dominant pattern: PascalCase
+
+---
+id: skapa-final-import-relative
+trigger: "when importing modules"
+confidence: 0.75
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/kshitij-create/skapa-final
+---
+
+# Skapa Final Import Relative
+
+## Action
+
+Use relative imports for project files
+
+## Evidence
+
+- Import analysis shows relative import pattern
+- Example: import { x } from '../lib/x'
+
+---
+id: skapa-final-export-style
+trigger: "when exporting from a module"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/kshitij-create/skapa-final
+---
+
+# Skapa Final Export Style
+
+## Action
+
+Prefer named exports
+
+## Evidence
+
+- Export pattern analysis
+- Dominant style: named
+
+---
+id: skapa-final-arch-type-based
+trigger: "when adding new code"
+confidence: 0.8
+domain: architecture
+source: repo-analysis
+source_repo: https://github.com/kshitij-create/skapa-final
+---
+
+# Skapa Final Arch Type Based
+
+## Action
+
+Place code in the appropriate type folder (components/, services/, utils/, etc.)
+
+## Evidence
+
+- Type-based module organization detected
+- Folders: components, navigation, screens, theme
+
+---
+id: skapa-final-test-separate
+trigger: "when writing tests"
+confidence: 0.8
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/kshitij-create/skapa-final
+---
+
+# Skapa Final Test Separate
+
+## Action
+
+Place tests in the tests/ or __tests__/ directory, mirroring src structure
+
+## Evidence
+
+- Separate test directory pattern detected
+- Tests live in dedicated test folders
+
+---
+id: skapa-final-workflow-feature-development-across-screens-and-components
+trigger: "when doing feature development across screens and components"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/kshitij-create/skapa-final
+---
+
+# Skapa Final Workflow Feature Development Across Screens And Components
+
+## Action
+
+Follow the feature-development-across-screens-and-components workflow:
+1. Edit or create components in src/components/
+2. Edit or create screens in src/screens/ and subfolders
+3. Update navigation in src/navigation/MainNavigator.tsx
+4. Update theming in src/theme/index.ts
+5. Optionally update documentation in memory/PRD.md
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: src/components/*.tsx, src/screens/**/*.tsx, src/navigation/MainNavigator.tsx
+
+---
+id: skapa-final-workflow-feature-or-doc-update-with-shared-component
+trigger: "when doing feature or doc update with shared component"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/kshitij-create/skapa-final
+---
+
+# Skapa Final Workflow Feature Or Doc Update With Shared Component
+
+## Action
+
+Follow the feature-or-doc-update-with-shared-component workflow:
+1. Edit or create a component in src/components/
+2. Edit or update a screen in src/screens/
+3. Update documentation in memory/PRD.md
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: src/components/*.tsx, src/screens/*.tsx, memory/PRD.md
+
+---
+id: skapa-final-instinct-file-naming
+trigger: "When creating a new file in the codebase"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: kshitij-create/skapa-final
+---
+
+# Skapa Final Instinct File Naming
+
+## Action
+
+Name the file using PascalCase (e.g., MyComponent.tsx)
+
+## Evidence
+
+- Pattern in codeStyle.namingConventions.files
+- Observed in src/components/ and src/screens/
+
+---
+id: skapa-final-instinct-function-naming
+trigger: "When defining a new function"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: kshitij-create/skapa-final
+---
+
+# Skapa Final Instinct Function Naming
+
+## Action
+
+Name the function using camelCase (e.g., handleClick)
+
+## Evidence
+
+- Pattern in codeStyle.namingConventions.functions
+
+---
+id: skapa-final-instinct-class-naming
+trigger: "When defining a new class"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: kshitij-create/skapa-final
+---
+
+# Skapa Final Instinct Class Naming
+
+## Action
+
+Name the class using PascalCase (e.g., UserProfile)
+
+## Evidence
+
+- Pattern in codeStyle.namingConventions.classes
+
+---
+id: skapa-final-instinct-constant-naming
+trigger: "When declaring a constant"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: kshitij-create/skapa-final
+---
+
+# Skapa Final Instinct Constant Naming
+
+## Action
+
+Name the constant using SCREAMING_SNAKE_CASE (e.g., MAX_LENGTH)
+
+## Evidence
+
+- Pattern in codeStyle.namingConventions.constants
+
+---
+id: skapa-final-instinct-relative-imports
+trigger: "When importing modules within the codebase"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: kshitij-create/skapa-final
+---
+
+# Skapa Final Instinct Relative Imports
+
+## Action
+
+Use relative import paths (e.g., import X from '../X')
+
+## Evidence
+
+- Pattern in codeStyle.importStyle
+
+---
+id: skapa-final-instinct-named-exports
+trigger: "When exporting functions, classes, or constants"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: kshitij-create/skapa-final
+---
+
+# Skapa Final Instinct Named Exports
+
+## Action
+
+Use named exports (e.g., export { MyComponent })
+
+## Evidence
+
+- Pattern in codeStyle.exportStyle
+
+---
+id: skapa-final-instinct-try-catch-errors
+trigger: "When handling errors in code"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: kshitij-create/skapa-final
+---
+
+# Skapa Final Instinct Try Catch Errors
+
+## Action
+
+Use try-catch blocks for error handling
+
+## Evidence
+
+- Pattern in errorHandling.style
+
+---
+id: skapa-final-instinct-test-location
+trigger: "When adding or updating tests"
+confidence: 0.7
+domain: testing
+source: repo-analysis
+source_repo: kshitij-create/skapa-final
+---
+
+# Skapa Final Instinct Test Location
+
+## Action
+
+Place test files in a separate test directory as per architecture.testLocation
+
+## Evidence
+
+- Pattern in architecture.folderStructure.testLocation
+
+---
+id: skapa-final-instinct-git-auto-commit-format
+trigger: "When making a commit"
+confidence: 0.85
+domain: git
+source: repo-analysis
+source_repo: kshitij-create/skapa-final
+---
+
+# Skapa Final Instinct Git Auto Commit Format
+
+## Action
+
+Use auto-generated commit messages in the format 'auto-commit for [UUID]' or 'Auto-generated changes'
+
+## Evidence
+
+- Seen in commit: 'auto-commit for d21bb5f9-5927-430b-8cf0-c08d440db3e0'
+- Pattern in commits.examples
+
+---
+id: skapa-final-instinct-feature-workflow
+trigger: "When adding or updating a feature that affects both UI components and screen logic (e.g., onboarding flows)"
+confidence: 0.9
+domain: workflow
+source: repo-analysis
+source_repo: kshitij-create/skapa-final
+---
+
+# Skapa Final Instinct Feature Workflow
+
+## Action
+
+Edit or create components in src/components/, screens in src/screens/, update navigation in src/navigation/MainNavigator.tsx, update theming in src/theme/index.ts, and optionally update documentation in memory/PRD.md
+
+## Evidence
+
+- Workflow: feature-development-across-screens-and-components
+- Pattern in workflow.commitSequence
+
+---
+id: skapa-final-instinct-component-doc-update-workflow
+trigger: "When enhancing a profile-related feature or shared component and documenting the change"
+confidence: 0.85
+domain: workflow
+source: repo-analysis
+source_repo: kshitij-create/skapa-final
+---
+
+# Skapa Final Instinct Component Doc Update Workflow
+
+## Action
+
+Edit or create a component in src/components/, edit or update a screen in src/screens/, and update documentation in memory/PRD.md
+
+## Evidence
+
+- Workflow: feature-or-doc-update-with-shared-component
+- Pattern in workflow.commitSequence
+
