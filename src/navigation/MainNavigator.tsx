@@ -7,12 +7,10 @@ import { HomeScreen } from '../screens/HomeScreen';
 import { LivePresenceScreen } from '../screens/LivePresenceScreen';
 import { ListeningRoomScreen } from '../screens/ListeningRoomScreen';
 import { RoomsScreen } from '../screens/RoomsScreen';
+import { ProfileScreen } from '../screens/ProfileScreen';
 import { COLORS } from '../theme';
 
 const Tab = createBottomTabNavigator();
-
-// Dummy screen for Profile since it hasn't been implemented yet
-const DummyScreen = () => <View style={{ flex: 1, backgroundColor: COLORS.background }} />;
 
 const CustomTabBar = ({ state, descriptors, navigation }: any) => {
   return (
@@ -135,13 +133,15 @@ export const MainNavigator = () => {
       {/* Tab 5: Profile */}
       <Tab.Screen
         name="Profile"
-        component={DummyScreen}
+        component={ProfileScreen}
         options={{
-          tabBarIcon: () => (
-            <Image
-              source={{ uri: 'https://i.pravatar.cc/150?u=user1' }}
-              style={styles.profileImage}
-            />
+          tabBarIcon: ({ focused }: any) => (
+            <View style={[styles.profileImageWrap, focused && styles.profileImageWrapActive]}>
+              <Image
+                source={{ uri: 'https://i.pravatar.cc/300?u=user1' }}
+                style={styles.profileImage}
+              />
+            </View>
           ),
         }}
       />
@@ -229,12 +229,25 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     lineHeight: 11,
   },
-  profileImage: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    opacity: 0.8,
+  profileImageWrap: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: 'rgba(255,255,255,0.12)',
+    overflow: 'hidden',
+    opacity: 0.75,
+  },
+  profileImageWrapActive: {
+    opacity: 1,
+    borderColor: '#ffae45',
+    borderWidth: 1.5,
+  },
+  profileImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 14,
   },
 });
