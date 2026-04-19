@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -14,8 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { COLORS } from '../theme';
 import { Waveform } from '../components/Waveform';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+import { ShareProfileCard } from '../components/ShareProfileCard';
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 const USER = {
@@ -29,6 +28,7 @@ const USER = {
     artist: 'The Weeknd',
     cover: 'https://i.scdn.co/image/ab67616d00001e028863bc11d2aa12b54f5aeb36',
   },
+  profileUrl: 'https://skapa.app/u/alexmercer',
   stats: {
     following: 248,
     followers: 1_234,
@@ -90,14 +90,33 @@ const SectionHeader: React.FC<{ title: string; action?: string }> = ({ title, ac
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export const ProfileScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
+  const [shareOpen, setShareOpen] = useState(false);
 
   return (
     <View style={styles.screen}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
+      {/* Share modal */}
+      <ShareProfileCard
+        visible={shareOpen}
+        onClose={() => setShareOpen(false)}
+        user={{
+          name: USER.name,
+          handle: USER.handle,
+          avatarUrl: USER.avatarUrl,
+          vibe: USER.vibe,
+          currentTrack: USER.currentTrack,
+          profileUrl: USER.profileUrl,
+        }}
+      />
+
       {/* Header action bar */}
       <View style={[styles.topActions, { paddingTop: insets.top + 10 }]}>
-        <TouchableOpacity activeOpacity={0.8} style={styles.actionIcon}>
+        <TouchableOpacity
+          activeOpacity={0.8}
+          style={styles.actionIcon}
+          onPress={() => setShareOpen(true)}
+        >
           <Ionicons name="share-outline" size={18} color="#fff" />
         </TouchableOpacity>
         <TouchableOpacity activeOpacity={0.8} style={styles.actionIcon}>
@@ -171,7 +190,11 @@ export const ProfileScreen: React.FC = () => {
               <Ionicons name="create-outline" size={15} color="#1a0f00" />
               <Text style={styles.primaryBtnText}>Edit Profile</Text>
             </TouchableOpacity>
-            <TouchableOpacity activeOpacity={0.85} style={styles.secondaryBtn}>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={styles.secondaryBtn}
+              onPress={() => setShareOpen(true)}
+            >
               <Ionicons name="share-social-outline" size={15} color="#fff" />
               <Text style={styles.secondaryBtnText}>Share</Text>
             </TouchableOpacity>
