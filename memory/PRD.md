@@ -1,77 +1,115 @@
-# SKAPA — Design Refinement + Shareable Vibe Card
+# SKAPA — Design Refinement + Shareable Vibe Card + Spotify Auth
 
 ## Original Problem Statement
 > Refine the whole design of app. Make the app more aesthetic and professional, don't do drastic changes.
 
 Follow-ups:
 > Run the Expo app and validate Map/Onboarding/Profile visuals on device
-> Build a shareable Profile card (gradient poster with current vibe + top track QR link) — one-tap export to Instagram stories
+> Build a shareable Profile card (gradient poster with current vibe + top track QR link)
+> Enable Spotify-only sign-ups via OAuth — design secure DB + flow
 
 ## App Overview
-SKAPA — React Native / Expo social music app. Users broadcast what they're listening to, see friends' live music on a map, and join listening rooms.
+SKAPA — React Native / Expo social music app. Users sign up via Spotify, broadcast what they're listening to, see friends' live music on a map, and join listening rooms.
 
 ## Tech Stack
-- Expo 55 · React Native 0.83 · React 19 · TypeScript
-- React Navigation (bottom tabs + native stack)
-- react-native-reanimated 4 + react-native-worklets 0.7.2 (for entrance animations)
-- expo-linear-gradient, expo-blur
-- **New for share card**: `react-native-view-shot`, `react-native-qrcode-svg`, `expo-sharing`, `expo-media-library`
+**Mobile**: Expo 55 · React Native 0.83 · React 19 · TypeScript · react-native-reanimated 4 + worklets 0.7.2 · expo-auth-session (PKCE) · expo-secure-store · expo-crypto · expo-web-browser · react-native-view-shot · react-native-qrcode-svg · expo-sharing · expo-media-library
 
-## Design Language (Refined)
-- Palette: dark (#050505) + amber gradient (#ffae45 → #f05c00); mood-driven secondary hues (violet / cyan / orange / slate)
-- Typography scale: display 34 / title 28 / heading 22 / subhead 17 / body 15 / caption 13 / overline 11
-- Radii: 8 · 12 · 16 · 20 · 28
-- Glassy surfaces with `rgba(255,255,255,0.035–0.08)` + 1px borders
-- Micro-interactions: press scale 0.97, animated glow opacity, spring/fade-in entrance per section
+**Backend**: FastAPI · uvicorn · motor (async MongoDB) · pydantic v2 · httpx · python-jose (HS256 JWT) · cryptography (AES-256-GCM) · pydantic-settings
+
+## Architecture
+
+```
+Expo app ──(PKCE code + verifier)──► Backend ──► Spotify token exchange
+                                       │
+                                       ├── MongoDB: users, sessions
+                                       └── Issues session JWT (HS256, 30d, jti)
+Expo stores JWT in SecureStore (Keychain/Keystore)
+```
 
 ## What's been implemented
 
-### Jan 2026 — Phase 1 (design polish)
-- **Theme foundation** — typography scale, shadow presets, mood palette
-- **New shared components** — `OnboardingProgress` (animated segmented progress), `DisplayPill` (editorial serif-italic pill)
-- **Refined OnboardingCTA** — chevron bubble, press scale + glow, optional subtitle
-- **Onboarding (3 screens polished)** — eyebrow labels, floating avatars, central hub with outer ring & under-glow, sparkles on cards, trust row, dynamic CTA label ("Enter with {vibe}"), Sign-in link
-- **Map (LivePresenceScreen)** — eyebrow location chip, "Music Map" heading, Nearby/Global segmented toggle with icons, search pill with filter dot, dual-ring pulsing avatars, bubble redesigned (avatar header + track/artist + "Tune In"), live pulse-ring indicator, friend rows w/ distance + artist, gradient FAB labeled "Drop", richer room cards with LIVE/SOON + genre
-- **Profile (new complete page)** — gradient cover, 124px avatar w/ tri-color ring + mood badge, stats row (Following / Followers / Day streak), Edit Profile + Share actions, Vibing Now purple card, Your Week analytics, indexed Top Tracks, Top Artists carousel, Friends row w/ invite CTA, Recent Rooms, Account settings, Logout + version footer
-- **Tab navigator** — profile tab avatar gets amber ring when focused
+### Phase 1 — design polish (Jan 2026)
+Theme tokens, OnboardingProgress & DisplayPill components, refined OnboardingCTA, polished all 3 onboarding screens, polished Map (segmented toggle, search pill, dual-ring avatars, richer sheet), new full Profile screen, wired ProfileScreen into navigator.
 
-### Jan 2026 — Phase 2 (shareable vibe card)
-- **ShareProfileCard.tsx** (new)
-  - 9:16 poster captured via `react-native-view-shot`
-  - Mood-driven gradient bg (8 preset palettes for each vibe)
-  - SKAPA wordmark, avatar w/ gradient ring + mood emoji badge, name/handle, big "CURRENT VIBE" pill, "LISTENING NOW" card, QR code linking to profile URL, tagline
-  - Action bar: **Save** (to Photos via `expo-media-library`) + **Share to Stories** (orange gradient, opens iOS/Android share sheet via `expo-sharing` → pick Instagram/any app)
-  - Permission prompt handled for photo save; graceful alerts on failure
-- Wired into `ProfileScreen` — tap top-right share icon OR the "Share" button under the avatar to open
-- Validated visually via Expo web (onboarding, map, profile, share modal — all rendering correctly)
+### Phase 2 — shareable vibe card
+`/app/src/components/ShareProfileCard.tsx` — 9:16 mood-gradient poster with avatar ring, CURRENT VIBE pill, LISTENING NOW row, QR code, Save (Photos) + Share to Stories (system share sheet) actions.
 
-## Files Touched
+### Phase 3 — Spotify OAuth sign-up
+**Backend (new `/app/backend/`)**:
+- `server.py` — FastAPI app, `/api/health`, lifespan opens/closes Mongo, CORS
+- `config.py` — pydantic-settings pulling MONGO_URL, DB_NAME, SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, JWT_SECRET, TOKEN_ENCRYPTION_KEY
+- `security.py` — AES-256-GCM encrypt/decrypt, HS256 JWT with jti+30d exp, `current_user` dependency (bearer + revocation check)
+- `db.py` — motor client, indexes (users.spotify_id unique, users.handle unique sparse, sessions.jti unique, sessions.expires_at TTL), `upsert_spotify_user`, `revoke_session`, `public_user`
+- `auth.py` — `POST /api/auth/spotify/callback`, `POST /api/auth/refresh`, `POST /api/auth/logout`, `POST /api/auth/spotify/disconnect`
+- `me.py` — `GET /api/me`, `GET /api/me/now-playing`, `GET /api/me/top-tracks`, `GET /api/me/top-artists`, `PUT /api/me/vibe` (with transparent Spotify-token refresh)
+- Refresh tokens stored **AES-256-GCM encrypted at rest** (`spotify.refresh_token_enc`)
+- Session revocation list (`sessions` collection) with TTL auto-cleanup
+
+**Mobile app**:
+- `/app/src/auth/api.ts` — fetch wrapper that injects JWT from SecureStore
+- `/app/src/auth/AuthContext.tsx` — AuthProvider with `useAuthRequest` PKCE setup, `signInWithSpotify`, `signOut`, `refreshUser`, boot-time `/api/me` hydration
+- `App.tsx` — wraps everything in `AuthProvider`; `RootRouter` swaps between Onboarding and Main based on user state; shows spinner during `booting`
+- `ConnectMusicScreen` — now triggers the real PKCE flow (loading state, error alerts, disabled state)
+- `ProfileScreen` — fully wired to real user data (name/handle/avatar/vibe from `/api/me`), real top-tracks, real top-artists, real now-playing; Log out opens confirm dialog that calls `signOut()`
+- `MainNavigator` — tab bar avatar uses live user avatar
+- `app.json` — added `"scheme": "skapa"` so `skapa://auth/callback` works for standalone builds
+
+### Environment files
+- `/app/backend/.env` — MONGO_URL, DB_NAME=skapa, SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, JWT_SECRET (96 hex chars), TOKEN_ENCRYPTION_KEY (32-byte base64), CORS_ORIGINS=*
+- `/app/.env` — EXPO_PUBLIC_BACKEND_URL, EXPO_PUBLIC_SPOTIFY_CLIENT_ID (public, Client Secret never shipped)
+
+## Testing
+- Phase 3 backend tested end-to-end by `testing_agent_v3`: **24/24 tests pass (100%)**
+- Validated: validation errors (422), auth errors (401), revocation-after-logout (401), encrypted-at-rest refresh tokens, JWT HS256+jti+30d, indexes, CORS, Spotify error passthrough
+- Test suites preserved at `/app/backend/tests/test_skapa_api.py`, `/app/backend/tests/test_authenticated_flows.py`
+
+## Spotify Developer Dashboard — user action required
+In <https://developer.spotify.com/dashboard> → app Settings → Redirect URIs, add:
 ```
-/app/package.json                                     (added 5 deps)
-/app/src/theme/index.ts                               (refined tokens)
-/app/src/components/OnboardingProgress.tsx            (new)
-/app/src/components/DisplayPill.tsx                   (new)
-/app/src/components/OnboardingCTA.tsx                 (refined)
-/app/src/components/ShareProfileCard.tsx              (new)
-/app/src/screens/onboarding/EmotionalHookScreen.tsx   (refined)
-/app/src/screens/onboarding/ConnectMusicScreen.tsx    (refined)
-/app/src/screens/onboarding/ChooseVibeScreen.tsx      (refined)
-/app/src/screens/LivePresenceScreen.tsx               (refined)
-/app/src/screens/ProfileScreen.tsx                    (new + share wired)
-/app/src/navigation/MainNavigator.tsx                 (wired profile)
+skapa://auth/callback
+exp://127.0.0.1:8081/--/auth/callback
+exp://localhost:8081/--/auth/callback
+https://auth.expo.io/@anonymous/skapa-final
+```
+
+## Files (new/modified this session)
+```
+/app/backend/server.py                                (new)
+/app/backend/config.py                                (new)
+/app/backend/security.py                              (new)
+/app/backend/db.py                                    (new)
+/app/backend/auth.py                                  (new)
+/app/backend/me.py                                    (new)
+/app/backend/requirements.txt                         (new)
+/app/backend/.env                                     (new)
+/app/.env                                             (new)
+/app/app.json                                         (scheme added)
+/app/App.tsx                                          (auth provider + router)
+/app/src/auth/api.ts                                  (new)
+/app/src/auth/AuthContext.tsx                         (new)
+/app/src/screens/onboarding/ConnectMusicScreen.tsx    (real Spotify sign-in)
+/app/src/screens/ProfileScreen.tsx                    (real data + logout)
+/app/src/navigation/MainNavigator.tsx                 (live avatar)
+/app/src/theme/index.ts                               (phase 1)
+/app/src/components/OnboardingProgress.tsx            (phase 1)
+/app/src/components/DisplayPill.tsx                   (phase 1)
+/app/src/components/OnboardingCTA.tsx                 (phase 1)
+/app/src/components/ShareProfileCard.tsx              (phase 2)
+/app/src/screens/onboarding/EmotionalHookScreen.tsx   (phase 1)
+/app/src/screens/onboarding/ChooseVibeScreen.tsx      (phase 1)
+/app/src/screens/LivePresenceScreen.tsx               (phase 1)
 ```
 
 ## Prioritized Backlog
-- P1: Connect Profile data to real backend (currently mock)
-- P1: Apply same polish pass to HomeScreen, RoomsScreen, ListeningRoomScreen
-- P2: Deep-link IG Stories directly (instagram-stories:// scheme with background-asset + sticker) for native-feel 1-tap (needs bundle ID whitelist)
-- P2: Custom font via expo-font (Clash Display / Söhne)
-- P2: Mood-tinted app chrome theming
-- P3: Profile edit modal, settings detail screens
+- P1: Listening-events ingestion — poll `/me/now-playing` every 30-60s while app is foregrounded, write to MongoDB, power the Map page with real users
+- P1: Friend graph, follow/unfollow, friends-nearby
+- P2: Apply design polish to HomeScreen, RoomsScreen, ListeningRoomScreen
+- P2: Real Listening Rooms (WebSocket-based presence + synced playback state, not audio)
+- P2: Rotate `TOKEN_ENCRYPTION_KEY` & `SPOTIFY_CLIENT_SECRET` (user pasted secret in chat — should rotate)
+- P3: Move `TOKEN_ENCRYPTION_KEY` to a KMS for envelope encryption
+- P3: Add rate limiting on `/api/auth/*`
+- P3: Profile edit modal
 
-## Test Credentials
-No auth — app starts on onboarding.
-
-## Notes for next session
-- Expo SDK 55 expected react-native-worklets `0.7.2`; we installed that exact version (0.8.x is incompatible with reanimated 4.2.x)
-- `react-native-view-shot` captures the hidden-friendly ref; on Android 13+ permission for MediaLibrary is scoped to photos
+## Credentials
+- Spotify test credentials are in `/app/backend/.env` (user-provided). Recommend rotation after development.
+- No password-based auth — Spotify OAuth is the sole login method.
