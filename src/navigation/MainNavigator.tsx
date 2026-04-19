@@ -9,6 +9,7 @@ import { ListeningRoomScreen } from '../screens/ListeningRoomScreen';
 import { RoomsScreen } from '../screens/RoomsScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { COLORS } from '../theme';
+import { useAuth } from '../auth/AuthContext';
 
 const Tab = createBottomTabNavigator();
 
@@ -68,6 +69,8 @@ const CustomTabBar = ({ state, descriptors, navigation }: any) => {
 };
 
 export const MainNavigator = () => {
+  const { user } = useAuth();
+  const userAvatarUri = user?.avatar_url || `https://i.pravatar.cc/150?u=${user?.id || 'skapa'}`;
   return (
     <Tab.Navigator
       tabBar={props => <CustomTabBar {...props} />}
@@ -138,7 +141,7 @@ export const MainNavigator = () => {
           tabBarIcon: ({ focused }: any) => (
             <View style={[styles.profileImageWrap, focused && styles.profileImageWrapActive]}>
               <Image
-                source={{ uri: 'https://i.pravatar.cc/300?u=user1' }}
+                source={{ uri: userAvatarUri }}
                 style={styles.profileImage}
               />
             </View>

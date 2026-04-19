@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View, Pressable } from 'react-native';
+import { StyleSheet, Text, View, Pressable, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeInDown, FadeInRight, FadeInUp } from 'react-native-reanimated';
 import { OnboardingBackground } from '../../components/OnboardingBackground';
@@ -9,6 +9,7 @@ import { DisplayPill } from '../../components/DisplayPill';
 import { OnboardingCTA } from '../../components/OnboardingCTA';
 import { Radio, Music, ShieldCheck } from 'lucide-react-native';
 import { COLORS } from '../../theme';
+import { useAuth } from '../../auth/AuthContext';
 
 const SpotifyIcon = () => (
   <View style={styles.spotifyIconPlaceholder}>
@@ -17,6 +18,18 @@ const SpotifyIcon = () => (
 );
 
 export const ConnectMusicScreen = ({ navigation }: any) => {
+  const { signInWithSpotify, signingIn, error } = useAuth();
+
+  const handleSpotify = async () => {
+    const u = await signInWithSpotify();
+    // Root router will automatically swap to Main navigator once user is set.
+    // No explicit navigation needed.
+  };
+
+  React.useEffect(() => {
+    if (error) Alert.alert('Sign-in failed', error);
+  }, [error]);
+
   return (
     <OnboardingBackground glowPosition="middle">
       <SafeAreaView style={styles.safeArea}>
@@ -44,22 +57,25 @@ export const ConnectMusicScreen = ({ navigation }: any) => {
               style={{ width: '100%', marginBottom: 12 }}
             >
               <PlatformButton
-                title="Connect Spotify"
-                subtitle="Recommended · Sync your library"
-                icon={<SpotifyIcon />}
+                title={signingIn ? 'Connecting…' : 'Continue with Spotify'}
+                subtitle="Required · Sign up & sync your library"
+                icon={signingIn
+                  ? <ActivityIndicator color="#1ed760" />
+                  : <SpotifyIcon />}
                 brandColor="#1ed760"
                 isActive={true}
-                onPress={() => {}}
+                onPress={handleSpotify}
+                disabled={signingIn}
               />
             </Animated.View>
 
-            <Animated.View entering={FadeInRight.delay(500).springify()} style={{ width: '100%' }}>
+            <Animated.View entering={FadeInRight.delay(500).springify()} style={{ width: '100%', opacity: 0.5 }}>
               <PlatformButton
                 title="Apple Music"
-                subtitle="Connect your account"
+                subtitle="Coming soon"
                 icon={<Music color="#fa243c" size={26} strokeWidth={2.2} />}
                 brandColor="#fa243c"
-                onPress={() => {}}
+                onPress={() => Alert.alert('Coming soon', 'Apple Music sign-in is not available yet. Use Spotify for now.')}
               />
             </Animated.View>
 
@@ -85,18 +101,19 @@ export const ConnectMusicScreen = ({ navigation }: any) => {
 
             <Animated.View entering={FadeInUp.delay(1100).springify()} style={{ width: '100%' }}>
               <OnboardingCTA
-                title="Continue"
-                onPress={() => navigation.navigate('ChooseVibe')}
+                title={signingIn ? 'Connecting…' : 'Continue with Spotify'}
+                onPress={handleSpotify}
+                disabled={signingIn}
               />
             </Animated.View>
 
             <Animated.View entering={FadeInUp.delay(1300).springify()}>
               <Pressable
                 style={styles.skipButton}
-                onPress={() => navigation.navigate('ChooseVibe')}
+                onPress={() => navigation.goBack()}
                 hitSlop={8}
               >
-                <Text style={styles.skipText}>Skip for now</Text>
+                <Text style={styles.skipText}>Back</Text>
               </Pressable>
             </Animated.View>
           </View>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -7,6 +7,7 @@ import {
   Image,
   TouchableOpacity,
   StatusBar,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -15,46 +16,11 @@ import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { COLORS } from '../theme';
 import { Waveform } from '../components/Waveform';
 import { ShareProfileCard } from '../components/ShareProfileCard';
+import { useAuth } from '../auth/AuthContext';
+import { apiFetch } from '../auth/api';
 
-// ─── Data ─────────────────────────────────────────────────────────────────────
-const USER = {
-  name: 'Alex Mercer',
-  handle: '@alexmercer',
-  avatarUrl: 'https://i.pravatar.cc/300?u=user1',
-  bio: 'Late night listener · sonic wanderer · sometimes DJ',
-  vibe: { emoji: '🌊', label: 'Late Night' },
-  currentTrack: {
-    title: 'After Hours',
-    artist: 'The Weeknd',
-    cover: 'https://i.scdn.co/image/ab67616d00001e028863bc11d2aa12b54f5aeb36',
-  },
-  profileUrl: 'https://skapa.app/u/alexmercer',
-  stats: {
-    following: 248,
-    followers: 1_234,
-    streak: 47,
-  },
-  week: {
-    hours: 23.4,
-    topGenre: 'Alt R&B',
-    minutesToday: 142,
-  },
-};
-
-const TOP_TRACKS = [
-  { id: 't1', title: '505', artist: 'Arctic Monkeys', cover: 'https://i.scdn.co/image/ab67616d00001e0264acfdc3f8b03565a1b3d0c1', plays: 142 },
-  { id: 't2', title: 'After Hours', artist: 'The Weeknd', cover: 'https://i.scdn.co/image/ab67616d00001e028863bc11d2aa12b54f5aeb36', plays: 98 },
-  { id: 't3', title: 'Apocalypse', artist: 'Cigarettes After Sex', cover: 'https://i.scdn.co/image/ab67616d00001e02a17c2bf68e2b3d9a63e67fcd', plays: 86 },
-  { id: 't4', title: 'Comptine d\'un autre été', artist: 'Yann Tiersen', cover: 'https://i.scdn.co/image/ab67616d00001e02bf3ac3df9d4f98da0db5a8cb', plays: 71 },
-];
-
-const TOP_ARTISTS = [
-  { id: 'a1', name: 'The Weeknd', img: 'https://i.pravatar.cc/200?img=12' },
-  { id: 'a2', name: 'Arctic Monkeys', img: 'https://i.pravatar.cc/200?img=13' },
-  { id: 'a3', name: 'Lana Del Rey', img: 'https://i.pravatar.cc/200?img=14' },
-  { id: 'a4', name: 'Frank Ocean', img: 'https://i.pravatar.cc/200?img=15' },
-  { id: 'a5', name: 'Mitski', img: 'https://i.pravatar.cc/200?img=16' },
-];
+// ─── Fallback data ───────────────────────────────────────────────────────────
+const FALLBACK_COVER = 'https://i.scdn.co/image/ab67616d00001e028863bc11d2aa12b54f5aeb36';
 
 const RECENT_ROOMS = [
   { id: 'r1', name: 'Night Drives', meta: '18 joined · 2h ago', emoji: '🌊', hue: '#8A2BE2' },
@@ -69,6 +35,20 @@ const FRIENDS_PREVIEW = [
   'https://i.pravatar.cc/100?img=3',
   'https://i.pravatar.cc/100?img=9',
 ];
+
+interface SpotifyTrack {
+  id: string;
+  title: string;
+  artist: string;
+  cover: string | null;
+  popularity?: number;
+}
+
+interface SpotifyArtist {
+  id: string;
+  name: string;
+  image: string | null;
+}
 
 // ─── Components ───────────────────────────────────────────────────────────────
 const StatPill: React.FC<{ value: string; label: string }> = ({ value, label }) => (
@@ -90,7 +70,50 @@ const SectionHeader: React.FC<{ title: string; action?: string }> = ({ title, ac
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export const ProfileScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
+  const { user, signOut } = useAuth();
   const [shareOpen, setShareOpen] = useState(false);
+  const [topTracks, setTopTracks] = useState<SpotifyTrack[]>([]);
+  const [topArtists, setTopArtists] = useState<SpotifyArtist[]>([]);
+  const [nowPlaying, setNowPlaying] = useState<SpotifyTrack | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [t, a, np] = await Promise.all([
+          apiFetch<{ tracks: SpotifyTrack[] }>('/api/me/top-tracks?limit=6').catch(() => ({ tracks: [] })),
+          apiFetch<{ artists: SpotifyArtist[] }>('/api/me/top-artists?limit=8').catch(() => ({ artists: [] })),
+          apiFetch<{ is_playing: boolean; track: SpotifyTrack | null }>('/api/me/now-playing').catch(() => ({ is_playing: false, track: null })),
+        ]);
+        setTopTracks(t.tracks || []);
+        setTopArtists(a.artists || []);
+        setNowPlaying(np.track || null);
+      } catch { /* ignore */ }
+    })();
+  }, []);
+
+  if (!user) return null;
+
+  const displayName = user.display_name || 'Listener';
+  const handle = user.handle ? `@${user.handle}` : '';
+  const avatarUrl = user.avatar_url || `https://i.pravatar.cc/300?u=${user.id}`;
+  const bio = user.profile?.bio || 'Tap Edit Profile to add a bio';
+  const vibe = user.vibe || { emoji: '🌊', label: 'Late Night' };
+  const stats = {
+    following: user.stats?.following ?? 0,
+    followers: user.stats?.followers ?? 0,
+    streak: user.stats?.streak_days ?? 1,
+  };
+  const profileUrl = `https://skapa.app/u/${user.profile?.share_slug || user.handle || user.id}`;
+  const currentTrack = nowPlaying
+    ? { title: nowPlaying.title, artist: nowPlaying.artist, cover: nowPlaying.cover || FALLBACK_COVER }
+    : { title: 'Nothing playing', artist: 'Open Spotify to vibe', cover: FALLBACK_COVER };
+
+  const handleLogout = () => {
+    Alert.alert('Log out?', 'You can sign back in with Spotify anytime.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Log out', style: 'destructive', onPress: () => signOut() },
+    ]);
+  };
 
   return (
     <View style={styles.screen}>
@@ -101,12 +124,12 @@ export const ProfileScreen: React.FC = () => {
         visible={shareOpen}
         onClose={() => setShareOpen(false)}
         user={{
-          name: USER.name,
-          handle: USER.handle,
-          avatarUrl: USER.avatarUrl,
-          vibe: USER.vibe,
-          currentTrack: USER.currentTrack,
-          profileUrl: USER.profileUrl,
+          name: displayName,
+          handle,
+          avatarUrl,
+          vibe,
+          currentTrack,
+          profileUrl,
         }}
       />
 
@@ -161,22 +184,22 @@ export const ProfileScreen: React.FC = () => {
               style={styles.avatarRing}
             >
               <View style={styles.avatarInner}>
-                <Image source={{ uri: USER.avatarUrl }} style={styles.avatarImg} />
+                <Image source={{ uri: avatarUrl }} style={styles.avatarImg} />
               </View>
             </LinearGradient>
             <View style={styles.avatarMoodBadge}>
-              <Text style={styles.avatarMoodEmoji}>{USER.vibe.emoji}</Text>
+              <Text style={styles.avatarMoodEmoji}>{vibe.emoji}</Text>
             </View>
           </Animated.View>
 
           <Animated.Text entering={FadeInDown.delay(200).springify()} style={styles.name}>
-            {USER.name}
+            {displayName}
           </Animated.Text>
           <Animated.Text entering={FadeInDown.delay(260).springify()} style={styles.handle}>
-            {USER.handle}
+            {handle}
           </Animated.Text>
           <Animated.Text entering={FadeInDown.delay(320).springify()} style={styles.bio}>
-            {USER.bio}
+            {bio}
           </Animated.Text>
 
           {/* Action buttons */}
@@ -202,11 +225,11 @@ export const ProfileScreen: React.FC = () => {
 
           {/* Stats row */}
           <Animated.View entering={FadeInUp.delay(440).springify()} style={styles.statsRow}>
-            <StatPill value={USER.stats.following.toLocaleString()} label="Following" />
+            <StatPill value={stats.following.toLocaleString()} label="Following" />
             <View style={styles.statDivider} />
-            <StatPill value={USER.stats.followers.toLocaleString()} label="Followers" />
+            <StatPill value={stats.followers.toLocaleString()} label="Followers" />
             <View style={styles.statDivider} />
-            <StatPill value={`${USER.stats.streak} 🔥`} label="Day streak" />
+            <StatPill value={`${stats.streak} 🔥`} label="Day streak" />
           </Animated.View>
         </View>
 
@@ -221,7 +244,7 @@ export const ProfileScreen: React.FC = () => {
             <View style={styles.nowPlayingRow}>
               <View style={styles.nowPlayingCoverWrap}>
                 <Image
-                  source={{ uri: USER.currentTrack.cover }}
+                  source={{ uri: currentTrack.cover }}
                   style={styles.nowPlayingCover}
                 />
                 <View style={styles.nowPlayingWaveWrap}>
@@ -230,14 +253,14 @@ export const ProfileScreen: React.FC = () => {
               </View>
               <View style={{ flex: 1, marginLeft: 14 }}>
                 <View style={styles.nowPlayingLabelRow}>
-                  <View style={styles.pulseDot} />
-                  <Text style={styles.nowPlayingLabel}>VIBING NOW</Text>
+                  <View style={[styles.pulseDot, { backgroundColor: nowPlaying ? '#22c55e' : '#64748b' }]} />
+                  <Text style={styles.nowPlayingLabel}>{nowPlaying ? 'VIBING NOW' : 'NOT PLAYING'}</Text>
                 </View>
-                <Text style={styles.nowPlayingTitle} numberOfLines={1}>{USER.currentTrack.title}</Text>
-                <Text style={styles.nowPlayingArtist} numberOfLines={1}>{USER.currentTrack.artist}</Text>
+                <Text style={styles.nowPlayingTitle} numberOfLines={1}>{currentTrack.title}</Text>
+                <Text style={styles.nowPlayingArtist} numberOfLines={1}>{currentTrack.artist}</Text>
                 <View style={styles.vibeChip}>
                   <Text style={styles.vibeChipText}>
-                    {USER.vibe.emoji}  {USER.vibe.label}
+                    {vibe.emoji}  {vibe.label}
                   </Text>
                 </View>
               </View>
@@ -255,60 +278,74 @@ export const ProfileScreen: React.FC = () => {
                 style={StyleSheet.absoluteFillObject}
               />
               <Ionicons name="time-outline" size={16} color={COLORS.primary} />
-              <Text style={styles.analyticsValue}>{USER.week.hours}h</Text>
+              <Text style={styles.analyticsValue}>—</Text>
               <Text style={styles.analyticsLabel}>Listened</Text>
             </View>
             <View style={styles.analyticsCard}>
               <Ionicons name="musical-notes-outline" size={16} color="rgba(255,255,255,0.6)" />
-              <Text style={styles.analyticsValue}>{USER.week.topGenre}</Text>
-              <Text style={styles.analyticsLabel}>Top genre</Text>
+              <Text style={styles.analyticsValue}>
+                {topArtists[0]?.name || '—'}
+              </Text>
+              <Text style={styles.analyticsLabel}>Top artist</Text>
             </View>
             <View style={styles.analyticsCard}>
               <Ionicons name="flash-outline" size={16} color="rgba(255,255,255,0.6)" />
-              <Text style={styles.analyticsValue}>{USER.week.minutesToday}m</Text>
-              <Text style={styles.analyticsLabel}>Today</Text>
+              <Text style={styles.analyticsValue}>{stats.streak}d</Text>
+              <Text style={styles.analyticsLabel}>Streak</Text>
             </View>
           </View>
         </View>
 
         {/* ── Top Tracks ── */}
-        <View style={styles.sectionGap}>
-          <SectionHeader title="Top Tracks · This Week" />
-          {TOP_TRACKS.map((t, i) => (
-            <TouchableOpacity key={t.id} activeOpacity={0.7} style={styles.trackRow}>
-              <Text style={styles.trackIndex}>{String(i + 1).padStart(2, '0')}</Text>
-              <Image source={{ uri: t.cover }} style={styles.trackCover} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.trackTitle} numberOfLines={1}>{t.title}</Text>
-                <Text style={styles.trackArtist} numberOfLines={1}>{t.artist}</Text>
-              </View>
-              <View style={styles.trackMeta}>
-                <Text style={styles.trackPlays}>{t.plays}</Text>
-                <Text style={styles.trackPlaysLabel}>plays</Text>
-              </View>
-              <TouchableOpacity style={styles.trackMoreBtn}>
-                <Ionicons name="ellipsis-horizontal" size={16} color="rgba(255,255,255,0.45)" />
-              </TouchableOpacity>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* ── Top Artists (carousel) ── */}
-        <View style={styles.sectionGap}>
-          <SectionHeader title="Top Artists" />
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 20, gap: 14 }}
-          >
-            {TOP_ARTISTS.map(a => (
-              <TouchableOpacity key={a.id} activeOpacity={0.85} style={styles.artistCard}>
-                <Image source={{ uri: a.img }} style={styles.artistImg} />
-                <Text style={styles.artistName} numberOfLines={1}>{a.name}</Text>
+        {topTracks.length > 0 && (
+          <View style={styles.sectionGap}>
+            <SectionHeader title="Top Tracks · This Month" />
+            {topTracks.map((t, i) => (
+              <TouchableOpacity key={t.id} activeOpacity={0.7} style={styles.trackRow}>
+                <Text style={styles.trackIndex}>{String(i + 1).padStart(2, '0')}</Text>
+                <Image
+                  source={{ uri: t.cover || FALLBACK_COVER }}
+                  style={styles.trackCover}
+                />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.trackTitle} numberOfLines={1}>{t.title}</Text>
+                  <Text style={styles.trackArtist} numberOfLines={1}>{t.artist}</Text>
+                </View>
+                {typeof t.popularity === 'number' && (
+                  <View style={styles.trackMeta}>
+                    <Text style={styles.trackPlays}>{t.popularity}</Text>
+                    <Text style={styles.trackPlaysLabel}>score</Text>
+                  </View>
+                )}
+                <TouchableOpacity style={styles.trackMoreBtn}>
+                  <Ionicons name="ellipsis-horizontal" size={16} color="rgba(255,255,255,0.45)" />
+                </TouchableOpacity>
               </TouchableOpacity>
             ))}
-          </ScrollView>
-        </View>
+          </View>
+        )}
+
+        {/* ── Top Artists (carousel) ── */}
+        {topArtists.length > 0 && (
+          <View style={styles.sectionGap}>
+            <SectionHeader title="Top Artists" />
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: 0, gap: 14 }}
+            >
+              {topArtists.map(a => (
+                <TouchableOpacity key={a.id} activeOpacity={0.85} style={styles.artistCard}>
+                  <Image
+                    source={{ uri: a.image || FALLBACK_COVER }}
+                    style={styles.artistImg}
+                  />
+                  <Text style={styles.artistName} numberOfLines={1}>{a.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
 
         {/* ── Friends preview ── */}
         <View style={styles.sectionGap}>
@@ -384,7 +421,7 @@ export const ProfileScreen: React.FC = () => {
             ))}
           </View>
 
-          <TouchableOpacity activeOpacity={0.7} style={styles.logoutBtn}>
+          <TouchableOpacity activeOpacity={0.7} style={styles.logoutBtn} onPress={handleLogout}>
             <Ionicons name="log-out-outline" size={16} color={COLORS.danger} />
             <Text style={styles.logoutText}>Log out</Text>
           </TouchableOpacity>
