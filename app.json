@@ -3,6 +3,7 @@
     "name": "skapa-final",
     "slug": "skapa-final",
     "version": "1.0.0",
+    "scheme": "skapa",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
