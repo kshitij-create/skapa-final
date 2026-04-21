@@ -15,6 +15,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { DropVibeModal } from '../components/DropVibeModal';
+import { publicFetch } from '../state/publicApi';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -425,14 +427,192 @@ const BottomSheet: React.FC<{ insets: { bottom: number } }> = ({ insets }) => {
 };
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
+interface Drop {
+  id: string;
+  user: { name: string; avatar: string | null; handle: string | null };
+  track: { title: string; artist: string; cover: string | null };
+  mood: { emoji: string; label: string };
+  caption: string | null;
+  color: string;
+  waves: number;
+  tunes_in: number;
+  created_at: string;
+}
+
+// Scattered positions for drops (stable per drop id)
+const DROP_POSITIONS = [
+  { top: '28%', left: '30%' },
+  { top: '48%', left: '62%' },
+  { top: '38%', left: '18%' },
+  { top: '60%', left: '40%' },
+  { top: '20%', left: '56%' },
+  { top: '66%', left: '68%' },
+  { top: '50%', left: '8%' },
+  { top: '14%', left: '38%' },
+];
+
+const DropPin: React.FC<{
+  drop: Drop;
+  index: number;
+  isSelected: boolean;
+  onPress: () => void;
+}> = ({ drop, index, isSelected, onPress }) => {
+  const pulse = useRef(new Animated.Value(1)).current;
+  const glow = useRef(new Animated.Value(0.4)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.delay(index * 200),
+        Animated.parallel([
+          Animated.sequence([
+            Animated.timing(pulse, { toValue: 1.15, duration: 900, useNativeDriver: true }),
+            Animated.timing(pulse, { toValue: 1, duration: 900, useNativeDriver: true }),
+          ]),
+          Animated.sequence([
+            Animated.timing(glow, { toValue: 0.75, duration: 900, useNativeDriver: true }),
+            Animated.timing(glow, { toValue: 0.3, duration: 900, useNativeDriver: true }),
+          ]),
+        ]),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, []);
+
+  const pos = DROP_POSITIONS[index % DROP_POSITIONS.length];
+
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.85}
+      style={[styles.dropAnchor, { top: pos.top as any, left: pos.left as any }]}
+    >
+      <Animated.View
+        style={[
+          styles.dropGlow,
+          {
+            backgroundColor: drop.color,
+            opacity: glow,
+          },
+        ]}
+      />
+      <Animated.View
+        style={[
+          styles.dropDiamond,
+          {
+            borderColor: drop.color,
+            backgroundColor: `${drop.color}33`,
+            transform: [{ rotate: '45deg' }, { scale: pulse }],
+          },
+          isSelected && { borderWidth: 2.5 },
+        ]}
+      >
+        <View style={{ transform: [{ rotate: '-45deg' }] }}>
+          <Text style={styles.dropEmoji}>{drop.mood.emoji}</Text>
+        </View>
+      </Animated.View>
+    </TouchableOpacity>
+  );
+};
+
+const DropBubble: React.FC<{ drop: Drop; onTune: () => void; onWave: () => void }> = ({ drop, onTune, onWave }) => (
+  <View style={styles.dropBubble}>
+    <View style={styles.dropBubbleHeader}>
+      {drop.user.avatar ? (
+        <Image source={{ uri: drop.user.avatar }} style={styles.dropBubbleAvatar} />
+      ) : (
+        <View style={[styles.dropBubbleAvatar, { backgroundColor: drop.color }]} />
+      )}
+      <View style={{ flex: 1 }}>
+        <Text style={styles.dropBubbleName}>{drop.user.name}</Text>
+        <Text style={styles.dropBubbleLabel}>dropped a vibe</Text>
+      </View>
+      <View style={[styles.dropBubbleMood, { borderColor: `${drop.color}66`, backgroundColor: `${drop.color}22` }]}>
+        <Text style={[styles.dropBubbleMoodText, { color: drop.color }]}>
+          {drop.mood.emoji} {drop.mood.label}
+        </Text>
+      </View>
+    </View>
+    {drop.track.cover && (
+      <View style={styles.dropBubbleTrack}>
+        <Image source={{ uri: drop.track.cover }} style={styles.dropBubbleCover} />
+        <View style={{ flex: 1, marginLeft: 10 }}>
+          <Text style={styles.dropBubbleTrackTitle} numberOfLines={1}>{drop.track.title}</Text>
+          <Text style={styles.dropBubbleTrackArtist} numberOfLines={1}>{drop.track.artist}</Text>
+        </View>
+      </View>
+    )}
+    {drop.caption ? (
+      <Text style={styles.dropBubbleCaption} numberOfLines={3}>"{drop.caption}"</Text>
+    ) : null}
+    <View style={styles.dropBubbleActions}>
+      <TouchableOpacity onPress={onWave} style={styles.dropBubbleActionBtn}>
+        <Ionicons name="hand-right-outline" size={13} color="#fff" />
+        <Text style={styles.dropBubbleActionText}>Wave · {drop.waves}</Text>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={onTune} activeOpacity={0.85} style={styles.dropBubbleTuneBtn}>
+        <LinearGradient
+          colors={[drop.color, '#ff6a00']}
+          start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFillObject}
+        />
+        <Ionicons name="headset-outline" size={13} color="#0a0a0a" />
+        <Text style={styles.dropBubbleTuneText}>Tune In · {drop.tunes_in}</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+);
+
 export const LivePresenceScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const [selectedUser, setSelectedUser] = useState<MapUser | null>(null);
   const [activeToggle, setActiveToggle] = useState<'global' | 'nearby'>('nearby');
+  const [dropModalOpen, setDropModalOpen] = useState(false);
+  const [drops, setDrops] = useState<Drop[]>([]);
+  const [selectedDropId, setSelectedDropId] = useState<string | null>(null);
+
+  const fetchDrops = React.useCallback(async () => {
+    try {
+      const data = await publicFetch<{ drops: Drop[] }>('/api/drops?limit=6');
+      setDrops(data.drops || []);
+    } catch {
+      /* silent */
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchDrops();
+    const t = setInterval(fetchDrops, 20000);
+    return () => clearInterval(t);
+  }, [fetchDrops]);
 
   const handleAvatarPress = (user: MapUser) => {
     setSelectedUser(prev => (prev?.id === user.id ? null : user));
+    setSelectedDropId(null);
   };
+
+  const handleDropPress = (id: string) => {
+    setSelectedDropId(prev => (prev === id ? null : id));
+    setSelectedUser(null);
+  };
+
+  const handleWave = async (dropId: string) => {
+    try {
+      const r = await publicFetch<{ waves: number }>(`/api/drops/${dropId}/wave`, { method: 'POST' });
+      setDrops(d => d.map(x => (x.id === dropId ? { ...x, waves: r.waves } : x)));
+    } catch {}
+  };
+
+  const handleTune = async (dropId: string) => {
+    try {
+      const r = await publicFetch<{ tunes_in: number }>(`/api/drops/${dropId}/tune-in`, { method: 'POST' });
+      setDrops(d => d.map(x => (x.id === dropId ? { ...x, tunes_in: r.tunes_in } : x)));
+      setSelectedDropId(null);
+    } catch {}
+  };
+
+  const selectedDrop = drops.find(d => d.id === selectedDropId) || null;
 
   return (
     <View style={styles.screen}>
@@ -535,6 +715,35 @@ export const LivePresenceScreen: React.FC = () => {
             <PreviewBubble user={selectedUser} onClose={() => setSelectedUser(null)} />
           </View>
         )}
+
+        {/* Drops on the map */}
+        {drops.map((d, i) => (
+          <DropPin
+            key={d.id}
+            drop={d}
+            index={i}
+            isSelected={selectedDropId === d.id}
+            onPress={() => handleDropPress(d.id)}
+          />
+        ))}
+        {selectedDrop && (
+          <View
+            style={[
+              styles.dropBubbleAnchor,
+              {
+                top: DROP_POSITIONS[drops.findIndex(d => d.id === selectedDrop.id) % DROP_POSITIONS.length].top as any,
+                left: DROP_POSITIONS[drops.findIndex(d => d.id === selectedDrop.id) % DROP_POSITIONS.length].left as any,
+              },
+            ]}
+            pointerEvents="box-none"
+          >
+            <DropBubble
+              drop={selectedDrop}
+              onWave={() => handleWave(selectedDrop.id)}
+              onTune={() => handleTune(selectedDrop.id)}
+            />
+          </View>
+        )}
       </Pressable>
 
       {/* FAB */}
@@ -546,12 +755,23 @@ export const LivePresenceScreen: React.FC = () => {
           start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
           style={styles.fab}
         >
-          <TouchableOpacity style={styles.fabInner} activeOpacity={0.85}>
+          <TouchableOpacity
+            style={styles.fabInner}
+            activeOpacity={0.85}
+            onPress={() => setDropModalOpen(true)}
+          >
             <Ionicons name="add" size={24} color="#fff" />
           </TouchableOpacity>
         </LinearGradient>
         <Text style={styles.fabLabel}>Drop</Text>
       </View>
+
+      {/* Drop modal */}
+      <DropVibeModal
+        visible={dropModalOpen}
+        onClose={() => setDropModalOpen(false)}
+        onDropped={fetchDrops}
+      />
 
       {/* Bottom Sheet */}
       <BottomSheet insets={insets} />
@@ -804,4 +1024,80 @@ const styles = StyleSheet.create({
   roomGenre: { fontSize: 10, color: 'rgba(255,255,255,0.45)', marginTop: 1 },
   roomFooter: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
   roomParticipants: { fontSize: 10, color: 'rgba(255,255,255,0.5)', fontWeight: '500' },
+
+  // Drops
+  dropAnchor: {
+    position: 'absolute',
+    width: 44, height: 44,
+    marginLeft: -22, marginTop: -22,
+    alignItems: 'center', justifyContent: 'center',
+    zIndex: 10,
+  },
+  dropGlow: {
+    position: 'absolute',
+    width: 60, height: 60, borderRadius: 30,
+  },
+  dropDiamond: {
+    width: 32, height: 32,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  dropEmoji: { fontSize: 14, lineHeight: 17 },
+  dropBubbleAnchor: {
+    position: 'absolute',
+    width: 260, marginLeft: -130, marginTop: -260,
+    zIndex: 60,
+  },
+  dropBubble: {
+    width: 260,
+    backgroundColor: 'rgba(14,10,22,0.96)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 22,
+    padding: 14,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5, shadowRadius: 20, elevation: 16,
+  },
+  dropBubbleHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
+  dropBubbleAvatar: { width: 32, height: 32, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' },
+  dropBubbleName: { fontSize: 13, fontWeight: '700', color: '#fff' },
+  dropBubbleLabel: {
+    fontSize: 9, color: 'rgba(255,255,255,0.5)',
+    letterSpacing: 1, textTransform: 'uppercase', marginTop: 2,
+  },
+  dropBubbleMood: {
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 99,
+    borderWidth: 1,
+  },
+  dropBubbleMoodText: { fontSize: 10, fontWeight: '700' },
+  dropBubbleTrack: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 12, padding: 8, marginBottom: 8,
+  },
+  dropBubbleCover: { width: 36, height: 36, borderRadius: 8 },
+  dropBubbleTrackTitle: { color: '#fff', fontWeight: '700', fontSize: 12 },
+  dropBubbleTrackArtist: { color: 'rgba(255,255,255,0.5)', fontSize: 10, marginTop: 1 },
+  dropBubbleCaption: {
+    color: 'rgba(255,255,255,0.72)', fontSize: 12, fontStyle: 'italic',
+    marginBottom: 10, lineHeight: 16,
+  },
+  dropBubbleActions: { flexDirection: 'row', gap: 8 },
+  dropBubbleActionBtn: {
+    flex: 1,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
+    paddingVertical: 9, borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
+  },
+  dropBubbleActionText: { color: '#fff', fontSize: 11, fontWeight: '600' },
+  dropBubbleTuneBtn: {
+    flex: 1.2,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
+    paddingVertical: 9, borderRadius: 10,
+    overflow: 'hidden',
+  },
+  dropBubbleTuneText: { color: '#0a0a0a', fontSize: 11, fontWeight: '700' },
 });

@@ -8,29 +8,22 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from fastapi import Depends, Header, HTTPException, status
 from jose import JWTError, jwt
 
 from config import settings
+from kms import envelope_decrypt, envelope_encrypt
 
 
-# ── AES-256-GCM ──────────────────────────────────────────────────────────────
-_KEY = base64.b64decode(settings.TOKEN_ENCRYPTION_KEY)
-if len(_KEY) != 32:
-    raise RuntimeError("TOKEN_ENCRYPTION_KEY must decode to 32 bytes")
-_AES = AESGCM(_KEY)
-
-
+# ── AES-256-GCM envelope encryption via KMS ──────────────────────────────────
 def encrypt_token(plaintext: str) -> str:
-    nonce = os.urandom(12)
-    ct = _AES.encrypt(nonce, plaintext.encode(), None)
-    return base64.b64encode(nonce + ct).decode()
+    """Envelope-encrypt a secret (e.g. Spotify refresh token)."""
+    return envelope_encrypt(plaintext)
 
 
 def decrypt_token(blob: str) -> str:
-    raw = base64.b64decode(blob)
-    return _AES.decrypt(raw[:12], raw[12:], None).decode()
+    """Envelope-decrypt a secret. Transparently supports legacy v0 blobs."""
+    return envelope_decrypt(blob)
 
 
 # ── JWT session tokens ──────────────────────────────────────────────────────

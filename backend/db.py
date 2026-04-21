@@ -25,6 +25,9 @@ async def init_db():
     await _db.users.create_index("handle", unique=True, sparse=True)
     await _db.sessions.create_index("jti", unique=True)
     await _db.sessions.create_index("expires_at", expireAfterSeconds=0)
+    # Drops: TTL + recent-first query
+    await _db.drops.create_index("expires_at", expireAfterSeconds=0)
+    await _db.drops.create_index([("created_at", -1)])
 
 
 async def close_db():

@@ -73,8 +73,12 @@ export const RoomsScreen = ({ navigation }: any) => {
         </View>
 
         <View style={styles.titleContainer}>
+          <View style={styles.eyebrowRow}>
+            <View style={styles.liveDot} />
+            <Text style={styles.eyebrowText}>LISTENING ROOMS · LIVE</Text>
+          </View>
           <Text style={styles.title}>Rooms</Text>
-          <Text style={styles.subtitle}>3 friends listening now</Text>
+          <Text style={styles.subtitle}>3 friends listening now · 892 rooms open</Text>
         </View>
 
         {/* Filters */}
@@ -198,7 +202,7 @@ export const RoomsScreen = ({ navigation }: any) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#140b08',
+    backgroundColor: '#050505',
   },
   ambientLight1: {
     position: 'absolute',
@@ -207,9 +211,9 @@ const styles = StyleSheet.create({
     width: 288,
     height: 288,
     borderRadius: 144,
-    backgroundColor: 'rgba(255, 85, 0, 0.15)',
+    backgroundColor: 'rgba(138, 43, 226, 0.12)',
     transform: [{ scale: 1.5 }],
-    opacity: 0.8,
+    opacity: 0.9,
   },
   ambientLight2: {
     position: 'absolute',
@@ -218,7 +222,7 @@ const styles = StyleSheet.create({
     width: 320,
     height: 320,
     borderRadius: 160,
-    backgroundColor: 'rgba(255, 170, 0, 0.1)',
+    backgroundColor: 'rgba(255, 138, 0, 0.08)',
     transform: [{ scale: 1.5 }],
     opacity: 0.8,
   },
@@ -248,16 +252,39 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingBottom: 16,
   },
+  eyebrowRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    marginBottom: 6,
+  },
+  liveDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: '#ef4444',
+    shadowColor: '#ef4444',
+    shadowOpacity: 1,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  eyebrowText: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 2,
+    color: '#ff8a00',
+  },
   title: {
     fontSize: 32,
-    fontWeight: '400',
+    fontWeight: '700',
     color: '#fff',
-    letterSpacing: -0.5,
+    letterSpacing: -0.6,
     marginBottom: 4,
   },
   subtitle: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.45)',
+    letterSpacing: -0.1,
   },
   filtersContainer: {
     paddingBottom: 8,
