@@ -31,6 +31,10 @@ async def init_db():
     # Rooms
     await _db.rooms.create_index("code", unique=True)
     await _db.rooms.create_index([("last_active_at", -1)])
+    # Listening events: one per user + TTL cleanup
+    await _db.listening_events.create_index("user_id", unique=True)
+    await _db.listening_events.create_index("expires_at", expireAfterSeconds=0)
+    await _db.listening_events.create_index([("timestamp", -1)])
 
 
 async def close_db():

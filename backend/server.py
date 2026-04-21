@@ -1,6 +1,7 @@
 """
 SKAPA FastAPI server entry point.
 """
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -12,12 +13,31 @@ from db import close_db, init_db
 from drops import router as drops_router
 from me import router as me_router
 from rooms import router as rooms_router
+from listening_events import router as listening_router, poll_listening_events
+
+
+# Background task handle
+_polling_task = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    global _polling_task
     await init_db()
+    
+    # Start background listening events polling
+    _polling_task = asyncio.create_task(poll_listening_events())
+    print("[SKAPA] Started listening events polling...")
+    
     yield
+    
+    # Cleanup
+    if _polling_task:
+        _polling_task.cancel()
+        try:
+            await _polling_task
+        except asyncio.CancelledError:
+            pass
     await close_db()
 
 
@@ -42,3 +62,4 @@ app.include_router(auth_router)
 app.include_router(me_router)
 app.include_router(drops_router)
 app.include_router(rooms_router)
+app.include_router(listening_router)

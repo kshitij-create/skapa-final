@@ -17,6 +17,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DropVibeModal } from '../components/DropVibeModal';
 import { publicFetch } from '../state/publicApi';
+import { useListeningEvents, type ListeningEvent } from '../hooks/useListeningEvents';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -98,6 +99,53 @@ const ROOMS: Room[] = [
   { name: 'Indie Pop Vibes', participants: 5, imageUrl: 'https://i.pravatar.cc/100?img=21', live: true, genre: 'Indie Pop' },
   { name: 'Lo-Fi Study', participants: 34, imageUrl: 'https://i.pravatar.cc/100?img=22', live: false, genre: 'Lo-Fi' },
 ];
+
+// ─── Helper: Convert ListeningEvent to MapUser ──────────────────────────────
+const MOOD_COLORS: Record<string, { glow: string; border: string }> = {
+  'Late Night': { glow: '#8A2BE2', border: '#8A2BE2' },
+  'Deep Focus': { glow: '#00E5FF', border: '#00E5FF' },
+  'High Energy': { glow: '#f97316', border: '#f97316' },
+  'Chill': { glow: '#0ea5e9', border: '#0ea5e9' },
+  'Melancholy': { glow: '#64748b', border: '#475569' },
+};
+
+function listeningEventToMapUser(event: ListeningEvent, index: number): MapUser {
+  const vibe = event.vibe || { emoji: '🎵', label: 'Vibing' };
+  const colors = MOOD_COLORS[vibe.label] || { glow: '#ff8a00', border: '#ff8a00' };
+  
+  // Use location from event or generate position based on index
+  let top = '50%';
+  let left = '50%';
+  
+  if (event.location) {
+    // Simple lat/lng to screen % mapping (very basic, can be improved)
+    // Normalize lat (-90 to 90) and lng (-180 to 180) to screen percentages
+    top = `${50 + ((event.location.lat / 90) * 25)}%`;
+    left = `${50 + ((event.location.lng / 180) * 40)}%`;
+  } else {
+    // Fallback: distribute in a circle pattern
+    const angle = (index * (360 / 8)) * (Math.PI / 180);
+    const radius = 35; // % from center
+    top = `${50 + radius * Math.sin(angle)}%`;
+    left = `${50 + radius * Math.cos(angle)}%`;
+  }
+  
+  return {
+    id: event.id,
+    name: event.user.display_name,
+    imageUrl: event.user.avatar_url || `https://i.pravatar.cc/100?img=${(index % 70) + 1}`,
+    track: event.track.title,
+    artist: event.track.artist,
+    mood: vibe.label,
+    moodEmoji: vibe.emoji,
+    glowColor: colors.glow,
+    borderColor: colors.border,
+    top,
+    left,
+    size: Math.max(38, Math.min(54, 54 - index * 2)), // Vary sizes slightly
+    opacity: 1,
+  };
+}
 
 // ─── Pulsing Avatar ───────────────────────────────────────────────────────────
 const PulsingAvatar: React.FC<{
@@ -571,6 +619,17 @@ export const LivePresenceScreen: React.FC = () => {
   const [dropModalOpen, setDropModalOpen] = useState(false);
   const [drops, setDrops] = useState<Drop[]>([]);
   const [selectedDropId, setSelectedDropId] = useState<string | null>(null);
+  
+  // Fetch real listening events
+  const { events: listeningEvents, loading: eventsLoading } = useListeningEvents();
+  
+  // Convert listening events to map users, fallback to mock data
+  const mapUsers = React.useMemo(() => {
+    if (listeningEvents.length > 0) {
+      return listeningEvents.slice(0, 12).map((event, i) => listeningEventToMapUser(event, i));
+    }
+    return MAP_USERS; // Fallback to mock data
+  }, [listeningEvents]);
 
   const fetchDrops = React.useCallback(async () => {
     try {
@@ -693,7 +752,7 @@ export const LivePresenceScreen: React.FC = () => {
 
       {/* Map avatars */}
       <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setSelectedUser(null)}>
-        {MAP_USERS.map((user, i) => (
+        {mapUsers.map((user, i) => (
           <PulsingAvatar
             key={user.id}
             user={user}

@@ -16,11 +16,13 @@ SKAPA is a social music presence app built with React Native (Expo). It lets you
 
 ### 🗺️ Music Map (Live Presence)
 - A real-time **spatial map** of friends listening nearby
+- **Real listening events ingestion** - see what people are actually playing (polls Spotify every 30s)
 - Pulsing avatar bubbles with mood-colored glows
 - Tap an avatar to see a **preview bubble** with track info and a "Tune In" action
 - **Nearby / Global** toggle to switch between local and worldwide views
 - Draggable **bottom sheet** with friends list, active rooms, and live stats
 - Gradient FAB to drop your own presence pin
+- **Mock locations** for testing (GPS integration ready for production)
 
 ### 📻 Rooms (Listening Rooms)
 - Browse and join shared listening rooms
@@ -127,19 +129,63 @@ All tokens live in `src/theme/index.ts`:
 ### Prerequisites
 
 - **Node.js ≥ 18** (required by Expo 55 and its CLI)
+- **Python 3.11+** for backend
 - **npm ≥ 9** or Yarn
 - Expo Go app on a physical device **or** Android/iOS simulator
+- **MongoDB** (Atlas free tier or local instance)
+- **Spotify Developer** account for API credentials
 
 > ⚠️ The project currently fails to start on Node 14 because `@expo/cli` uses modern JS syntax (`||=`). Upgrade Node first.
 
-### Install
+### Local Development Setup
 
+#### Quick Start (Recommended)
 ```bash
+# Run the setup script
+./setup-local.sh
+
+# Follow the prompts to configure your .env files
+```
+
+#### Manual Setup
+
+**1. Backend Setup**
+```bash
+# Create virtual environment
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r backend/requirements.txt
+
+# Create and configure .env
+cp backend/.env.example backend/.env
+# Edit backend/.env with your credentials
+
+# Generate secrets
+openssl rand -base64 32  # For JWT_SECRET
+openssl rand -base64 32  # For TOKEN_ENCRYPTION_KEY
+```
+
+**2. Frontend Setup**
+```bash
+# Install dependencies
 npm install
+
+# Create .env for local development
+echo "EXPO_PUBLIC_BACKEND_URL=http://localhost:8001" > .env
 ```
 
 ### Run
 
+**Terminal 1 - Start Backend:**
+```bash
+source venv/bin/activate  # Activate virtual environment
+cd backend
+uvicorn server:app --reload --host 0.0.0.0 --port 8001
+```
+
+**Terminal 2 - Start Frontend:**
 ```bash
 # Start the Expo dev server (scan QR with Expo Go)
 npx expo start
@@ -150,6 +196,16 @@ npx expo start --android
 # Run directly on iOS
 npx expo start --ios
 ```
+
+### Deploy to Production
+
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed instructions on deploying to Fly.io with MongoDB Atlas.
+
+Quick summary:
+1. Set up MongoDB Atlas (free tier)
+2. Install Fly.io CLI: `curl -L https://fly.io/install.sh | sh`
+3. Configure secrets: `flyctl secrets set MONGO_URL="..."`
+4. Deploy: `flyctl deploy`
 
 ---
 
