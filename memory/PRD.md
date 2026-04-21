@@ -1,115 +1,108 @@
-# SKAPA — Design Refinement + Shareable Vibe Card + Spotify Auth
+# SKAPA — Session 4 (Drops + KMS + ChooseVibe polish)
 
 ## Original Problem Statement
-> Refine the whole design of app. Make the app more aesthetic and professional, don't do drastic changes.
-
-Follow-ups:
-> Run the Expo app and validate Map/Onboarding/Profile visuals on device
-> Build a shareable Profile card (gradient poster with current vibe + top track QR link)
-> Enable Spotify-only sign-ups via OAuth — design secure DB + flow
+> Refine the whole design of app (done) → shareable vibe card (done) → Spotify auth (blocked by Spotify Premium policy — deferred)
+> Session 4: "Add one full feature from Backlog, move TOKEN_ENCRYPTION_KEY to KMS, polish ChooseVibe"
+> Feature chosen: **(b) "Drop a Vibe" on Map** + **(c) Design polish for Home/Rooms/ListeningRoom**
 
 ## App Overview
-SKAPA — React Native / Expo social music app. Users sign up via Spotify, broadcast what they're listening to, see friends' live music on a map, and join listening rooms.
+SKAPA — React Native / Expo social music app. Users see who's vibing around them on a live map, drop tracks with a mood as pins others can tune into, and (when Spotify OAuth is unblocked) sign up with Spotify.
 
 ## Tech Stack
-**Mobile**: Expo 55 · React Native 0.83 · React 19 · TypeScript · react-native-reanimated 4 + worklets 0.7.2 · expo-auth-session (PKCE) · expo-secure-store · expo-crypto · expo-web-browser · react-native-view-shot · react-native-qrcode-svg · expo-sharing · expo-media-library
+**Mobile**: Expo 55 · RN 0.83 · React 19 · TypeScript · reanimated 4 · expo-auth-session (deferred) · expo-secure-store · react-native-view-shot · react-native-qrcode-svg · **@react-native-async-storage/async-storage** (new)
 
-**Backend**: FastAPI · uvicorn · motor (async MongoDB) · pydantic v2 · httpx · python-jose (HS256 JWT) · cryptography (AES-256-GCM) · pydantic-settings
+**Backend**: FastAPI · motor (Mongo) · httpx · python-jose (HS256 JWT) · cryptography (AES-256-GCM) · pydantic v2
 
 ## Architecture
 
 ```
-Expo app ──(PKCE code + verifier)──► Backend ──► Spotify token exchange
-                                       │
-                                       ├── MongoDB: users, sessions
-                                       └── Issues session JWT (HS256, 30d, jti)
-Expo stores JWT in SecureStore (Keychain/Keystore)
+Expo app ──► Backend (FastAPI) ──► Mongo
+                 │
+                 ├── KMS (LocalKmsProvider) ──► envelope encrypt/decrypt
+                 └── Drops TTL'd (24h) via Mongo TTL index
 ```
 
-## What's been implemented
+## This session's delivery
 
-### Phase 1 — design polish (Jan 2026)
-Theme tokens, OnboardingProgress & DisplayPill components, refined OnboardingCTA, polished all 3 onboarding screens, polished Map (segmented toggle, search pill, dual-ring avatars, richer sheet), new full Profile screen, wired ProfileScreen into navigator.
+### 1. KMS envelope encryption (`/app/backend/kms.py` — NEW)
+- Pluggable `KmsProvider` interface with `LocalKmsProvider` as the default
+- **Envelope encryption**: every encrypt generates a fresh DEK, encrypts payload with DEK, wraps DEK with KEK. Forward-secrecy: leaking one DEK exposes just one token, never the whole DB.
+- Envelope format: `base64(json({v:1, k:key_id, d:wrapped_dek, n:nonce, c:ciphertext}))`
+- **Backward compatible**: `envelope_decrypt` transparently falls back to the legacy v0 raw-AES-GCM format for data written before KMS was added → zero-downtime migration
+- **Rotation-ready**: `key_id` stored per blob; add `KEK_local_v2=<base64>` to env to rotate — old blobs still decrypt
+- Cloud path: swap `LocalKmsProvider` with `AwsKmsProvider` / `GcpKmsProvider` one day — one line in `kms.py`
+- `security.encrypt_token` / `decrypt_token` now delegate to `envelope_encrypt/decrypt` — drop-in replacement
 
-### Phase 2 — shareable vibe card
-`/app/src/components/ShareProfileCard.tsx` — 9:16 mood-gradient poster with avatar ring, CURRENT VIBE pill, LISTENING NOW row, QR code, Save (Photos) + Share to Stories (system share sheet) actions.
+### 2. Drop a Vibe — core social feature
+**Backend** (`/app/backend/drops.py` — NEW):
+- `POST /api/drops` create a drop (track + mood + caption + coords + mock user)
+- `GET /api/drops?limit=50` list recent (TTL-filtered)
+- `POST /api/drops/{id}/wave` increment waves counter
+- `POST /api/drops/{id}/tune-in` increment tune-ins
+- Mongo indexes: `drops.expires_at` TTL (auto-deletes after 24h) + `drops.created_at -1`
+- Validates lat/lng bounds, caption length (180), field presence → 422 on bad payload, 404 on missing drop, 400 on bad ObjectId
 
-### Phase 3 — Spotify OAuth sign-up
-**Backend (new `/app/backend/`)**:
-- `server.py` — FastAPI app, `/api/health`, lifespan opens/closes Mongo, CORS
-- `config.py` — pydantic-settings pulling MONGO_URL, DB_NAME, SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, JWT_SECRET, TOKEN_ENCRYPTION_KEY
-- `security.py` — AES-256-GCM encrypt/decrypt, HS256 JWT with jti+30d exp, `current_user` dependency (bearer + revocation check)
-- `db.py` — motor client, indexes (users.spotify_id unique, users.handle unique sparse, sessions.jti unique, sessions.expires_at TTL), `upsert_spotify_user`, `revoke_session`, `public_user`
-- `auth.py` — `POST /api/auth/spotify/callback`, `POST /api/auth/refresh`, `POST /api/auth/logout`, `POST /api/auth/spotify/disconnect`
-- `me.py` — `GET /api/me`, `GET /api/me/now-playing`, `GET /api/me/top-tracks`, `GET /api/me/top-artists`, `PUT /api/me/vibe` (with transparent Spotify-token refresh)
-- Refresh tokens stored **AES-256-GCM encrypted at rest** (`spotify.refresh_token_enc`)
-- Session revocation list (`sessions` collection) with TTL auto-cleanup
+**Frontend**:
+- **`DropVibeModal.tsx`** — bottom-sheet composer: horizontal track carousel (curated list for MVP; swap for Spotify search once auth is unblocked) → mood picker → optional caption → gradient "Drop it" CTA. Mood-tinted gradient background. Loading + error states handled.
+- **`LivePresenceScreen`**: FAB now opens the Drop modal; map renders live drops as pulsing diamond pins colored by mood; tapping shows a glass preview bubble with user/track/caption + Wave & Tune In actions (both POST to backend)
+- Auto-refreshes drops every 20 s
+- `/app/src/state/publicApi.ts` — tiny fetch wrapper for unauthed endpoints
 
-**Mobile app**:
-- `/app/src/auth/api.ts` — fetch wrapper that injects JWT from SecureStore
-- `/app/src/auth/AuthContext.tsx` — AuthProvider with `useAuthRequest` PKCE setup, `signInWithSpotify`, `signOut`, `refreshUser`, boot-time `/api/me` hydration
-- `App.tsx` — wraps everything in `AuthProvider`; `RootRouter` swaps between Onboarding and Main based on user state; shows spinner during `booting`
-- `ConnectMusicScreen` — now triggers the real PKCE flow (loading state, error alerts, disabled state)
-- `ProfileScreen` — fully wired to real user data (name/handle/avatar/vibe from `/api/me`), real top-tracks, real top-artists, real now-playing; Log out opens confirm dialog that calls `signOut()`
-- `MainNavigator` — tab bar avatar uses live user avatar
-- `app.json` — added `"scheme": "skapa"` so `skapa://auth/callback` works for standalone builds
+### 3. ChooseVibe polish
+- Persists to `AsyncStorage` via `/app/src/state/localStore.ts` (`getVibe` / `setVibe`)
+- **Confetti burst** (`VibeConfetti.tsx` — 24 radial particles w/ reanimated) triggers on each mood select
+- Subtle scale pulse on the grid when a new mood is picked
+- CTA label reflects selection ("Enter with Late Night")
+- **Reusable as a modal** (`ChooseVibeModal.tsx`) — accessible from Profile: tap the "🌊 Late Night" chip → mood grid opens in a sheet → pick + save
+- Profile hydrates the vibe from AsyncStorage on mount, so picking in onboarding immediately reflects on Profile
 
-### Environment files
-- `/app/backend/.env` — MONGO_URL, DB_NAME=skapa, SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, JWT_SECRET (96 hex chars), TOKEN_ENCRYPTION_KEY (32-byte base64), CORS_ORIGINS=*
-- `/app/.env` — EXPO_PUBLIC_BACKEND_URL, EXPO_PUBLIC_SPOTIFY_CLIENT_ID (public, Client Secret never shipped)
+### 4. Design-polish pass on Home + Rooms
+- Both screens now use the unified dark palette (`#050505`) instead of warm-brown
+- Consistent eyebrow pattern (orange `HOME · LIVE` / `LISTENING ROOMS · LIVE` w/ pulse dot)
+- Typography harmonised: 700 weight + -0.6 letter-spacing on page titles to match Map/Profile
+- `ListeningRoomScreen` already aligned with refined aesthetic — no change
+- Ambient-glow colors swapped to the mood palette (violet/amber instead of the old warm orange)
+
+## Files (new or modified this session)
+```
+NEW:
+/app/backend/kms.py
+/app/backend/drops.py
+/app/src/state/localStore.ts
+/app/src/state/publicApi.ts
+/app/src/components/DropVibeModal.tsx
+/app/src/components/VibeConfetti.tsx
+/app/src/components/ChooseVibeModal.tsx
+
+MODIFIED:
+/app/backend/security.py         (encrypt_token → envelope_encrypt)
+/app/backend/server.py           (mounts drops_router)
+/app/backend/db.py               (drops indexes)
+/app/src/screens/onboarding/ChooseVibeScreen.tsx
+/app/src/screens/LivePresenceScreen.tsx
+/app/src/screens/ProfileScreen.tsx
+/app/src/screens/HomeScreen.tsx
+/app/src/screens/RoomsScreen.tsx
+/app/package.json                (async-storage 2.2.0)
+```
 
 ## Testing
-- Phase 3 backend tested end-to-end by `testing_agent_v3`: **24/24 tests pass (100%)**
-- Validated: validation errors (422), auth errors (401), revocation-after-logout (401), encrypted-at-rest refresh tokens, JWT HS256+jti+30d, indexes, CORS, Spotify error passthrough
-- Test suites preserved at `/app/backend/tests/test_skapa_api.py`, `/app/backend/tests/test_authenticated_flows.py`
+- **49/49 backend tests passed** via `testing_agent_v3` (24 regression from iteration_1 + 25 new)
+- KMS: round-trip, per-encryption DEK uniqueness, legacy v0 compatibility, key-id recording
+- Drops: all CRUD + validation + TTL + indexes + wave/tune-in counters + 400/404 handling
+- Test files: `/app/backend/tests/test_kms_and_drops.py`
 
-## Spotify Developer Dashboard — user action required
-In <https://developer.spotify.com/dashboard> → app Settings → Redirect URIs, add:
-```
-skapa://auth/callback
-exp://127.0.0.1:8081/--/auth/callback
-exp://localhost:8081/--/auth/callback
-https://auth.expo.io/@anonymous/skapa-final
-```
-
-## Files (new/modified this session)
-```
-/app/backend/server.py                                (new)
-/app/backend/config.py                                (new)
-/app/backend/security.py                              (new)
-/app/backend/db.py                                    (new)
-/app/backend/auth.py                                  (new)
-/app/backend/me.py                                    (new)
-/app/backend/requirements.txt                         (new)
-/app/backend/.env                                     (new)
-/app/.env                                             (new)
-/app/app.json                                         (scheme added)
-/app/App.tsx                                          (auth provider + router)
-/app/src/auth/api.ts                                  (new)
-/app/src/auth/AuthContext.tsx                         (new)
-/app/src/screens/onboarding/ConnectMusicScreen.tsx    (real Spotify sign-in)
-/app/src/screens/ProfileScreen.tsx                    (real data + logout)
-/app/src/navigation/MainNavigator.tsx                 (live avatar)
-/app/src/theme/index.ts                               (phase 1)
-/app/src/components/OnboardingProgress.tsx            (phase 1)
-/app/src/components/DisplayPill.tsx                   (phase 1)
-/app/src/components/OnboardingCTA.tsx                 (phase 1)
-/app/src/components/ShareProfileCard.tsx              (phase 2)
-/app/src/screens/onboarding/EmotionalHookScreen.tsx   (phase 1)
-/app/src/screens/onboarding/ChooseVibeScreen.tsx      (phase 1)
-/app/src/screens/LivePresenceScreen.tsx               (phase 1)
-```
-
-## Prioritized Backlog
-- P1: Listening-events ingestion — poll `/me/now-playing` every 30-60s while app is foregrounded, write to MongoDB, power the Map page with real users
-- P1: Friend graph, follow/unfollow, friends-nearby
-- P2: Apply design polish to HomeScreen, RoomsScreen, ListeningRoomScreen
-- P2: Real Listening Rooms (WebSocket-based presence + synced playback state, not audio)
-- P2: Rotate `TOKEN_ENCRYPTION_KEY` & `SPOTIFY_CLIENT_SECRET` (user pasted secret in chat — should rotate)
-- P3: Move `TOKEN_ENCRYPTION_KEY` to a KMS for envelope encryption
-- P3: Add rate limiting on `/api/auth/*`
+## Prioritized Backlog (remaining)
+- P1: Spotify Premium sub OR pivot to Google/Apple sign-in so auth ships
+- P1: Listening-events ingestion (poll /me/now-playing → Mongo → real users on map)
+- P1: Friend graph (follow / followers / friends-nearby)
+- P2: Real Listening Rooms (WebSocket presence + synced now-playing)
+- P2: Move DropVibeModal's curated track list → real Spotify search (once auth lands)
+- P3: Move `TOKEN_ENCRYPTION_KEY` → AWS KMS / GCP KMS (plumbing is already pluggable)
+- P3: Rate-limiting on `/api/drops` and `/api/auth/*`
 - P3: Profile edit modal
 
-## Credentials
-- Spotify test credentials are in `/app/backend/.env` (user-provided). Recommend rotation after development.
-- No password-based auth — Spotify OAuth is the sole login method.
+## Notes
+- Drops auto-expire after 24h via Mongo TTL index — no cron needed
+- DropVibeModal posts with a hardcoded "You" mock user (no auth yet); easy swap to real user when auth lands
+- Backend URL: https://1e23550a-aef8-41ec-bafc-7efe3da04521.preview.emergentagent.com
