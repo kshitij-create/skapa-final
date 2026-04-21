@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -6,36 +6,74 @@ import {
   Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
+import Animated, {
+  FadeInDown,
+  FadeInUp,
+  useSharedValue,
+  useAnimatedStyle,
+  withSequence,
+  withTiming,
+  withSpring,
+  Easing,
+} from 'react-native-reanimated';
 import { OnboardingBackground } from '../../components/OnboardingBackground';
 import { MoodChip } from '../../components/MoodChip';
 import { OnboardingCTA } from '../../components/OnboardingCTA';
 import { OnboardingProgress } from '../../components/OnboardingProgress';
 import { DisplayPill } from '../../components/DisplayPill';
+import { VibeConfetti } from '../../components/VibeConfetti';
 import { COLORS } from '../../theme';
-
-const MOODS = [
-  { id: 'latenight',  emoji: '🌊', title: 'Late Night' },
-  { id: 'highenergy', emoji: '🔥', title: 'High Energy' },
-  { id: 'focus',      emoji: '🔮', title: 'Focus' },
-  { id: 'chill',      emoji: '☁️', title: 'Chill' },
-  { id: 'sadhours',   emoji: '💔', title: 'Sad Hours' },
-  { id: 'indie',      emoji: '🎧', title: 'Indie' },
-];
+import { setVibe, getVibe, VIBES } from '../../state/localStore';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const GRID_PADDING = 24;
 const GRID_GAP = 12;
 const CARD_SIZE = (SCREEN_WIDTH - GRID_PADDING * 2 - GRID_GAP) / 2;
 
+const MOOD_COLORS: Record<string, string> = {
+  'latenight': '#8A2BE2',
+  'highenergy': '#f97316',
+  'focus': '#00E5FF',
+  'chill': '#0ea5e9',
+  'sadhours': '#64748b',
+  'indie': '#ec4899',
+};
+
 export const ChooseVibeScreen = ({ navigation }: any) => {
   const [activeMood, setActiveMood] = useState('latenight');
+  const [confettiSeed, setConfettiSeed] = useState(0);
+  const pulse = useSharedValue(1);
 
-  const handleFinishOnboarding = () => {
-    navigation.replace('Main');
+  // Hydrate from AsyncStorage
+  useEffect(() => {
+    getVibe().then(v => {
+      if (v?.id && VIBES.find(m => m.id === v.id)) {
+        setActiveMood(v.id);
+      }
+    });
+  }, []);
+
+  const selected = VIBES.find(m => m.id === activeMood) ?? VIBES[0];
+  const moodColor = MOOD_COLORS[activeMood] || '#ff8a00';
+
+  const handlePickMood = (id: string) => {
+    if (id === activeMood) return;
+    setActiveMood(id);
+    pulse.value = withSequence(
+      withTiming(1.04, { duration: 140, easing: Easing.out(Easing.quad) }),
+      withSpring(1, { damping: 6, stiffness: 160 }),
+    );
+    setConfettiSeed(s => s + 1);
   };
 
-  const selected = MOODS.find(m => m.id === activeMood);
+  const animPulse = useAnimatedStyle(() => ({
+    transform: [{ scale: pulse.value }],
+  }));
+
+  const handleFinishOnboarding = async () => {
+    await setVibe({ id: selected.id, emoji: selected.emoji, label: selected.label });
+    navigation.replace('Main');
+  };
 
   return (
     <OnboardingBackground glowPosition="bottom">
@@ -64,20 +102,23 @@ export const ChooseVibeScreen = ({ navigation }: any) => {
           {/* 2-column mood grid */}
           <Animated.View
             entering={FadeInUp.delay(300).springify()}
-            style={styles.gridWrap}
+            style={[styles.gridWrap, animPulse]}
           >
             <View style={styles.grid}>
-              {MOODS.map((mood) => (
+              {VIBES.map((mood) => (
                 <MoodChip
                   key={mood.id}
                   emoji={mood.emoji}
-                  title={mood.title}
+                  title={mood.label}
                   isActive={activeMood === mood.id}
-                  onPress={() => setActiveMood(mood.id)}
+                  onPress={() => handlePickMood(mood.id)}
                   style={{ width: CARD_SIZE, height: CARD_SIZE }}
                 />
               ))}
             </View>
+
+            {/* Confetti burst over the grid */}
+            <VibeConfetti trigger={confettiSeed} color={moodColor} color2="#ffae45" />
           </Animated.View>
 
           {/* CTA */}
@@ -86,7 +127,7 @@ export const ChooseVibeScreen = ({ navigation }: any) => {
             style={styles.bottomContent}
           >
             <OnboardingCTA
-              title={`Enter with ${selected?.title ?? 'your vibe'}`}
+              title={`Enter with ${selected.label}`}
               onPress={handleFinishOnboarding}
             />
           </Animated.View>
@@ -136,6 +177,7 @@ const styles = StyleSheet.create({
   gridWrap: {
     flex: 1,
     justifyContent: 'center',
+    position: 'relative',
   },
   grid: {
     flexDirection: 'row',

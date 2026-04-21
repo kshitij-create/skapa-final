@@ -29,6 +29,10 @@ export const HomeScreen: React.FC = () => {
       {/* Header */}
       <View style={styles.header}>
         <View>
+          <View style={styles.eyebrowRow}>
+            <View style={styles.livePulseDot} />
+            <Text style={styles.eyebrowText}>HOME · LIVE</Text>
+          </View>
           <Text style={styles.appTitle}>SKAPA</Text>
           <Text style={styles.appSubtitle}>Set your presence</Text>
         </View>
@@ -37,7 +41,7 @@ export const HomeScreen: React.FC = () => {
           onPress={() => setShowNotifications(!showNotifications)}
           activeOpacity={0.7}
         >
-          <Ionicons name="notifications-outline" size={24} color={COLORS.text} />
+          <Ionicons name="notifications-outline" size={20} color={COLORS.text} />
           <View style={styles.bellBadge} />
         </TouchableOpacity>
       </View>
@@ -185,15 +189,37 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   appTitle: {
-    fontSize: 24,
-    fontWeight: '600',
+    fontSize: 28,
+    fontWeight: '700',
     color: COLORS.text,
-    letterSpacing: -0.5,
+    letterSpacing: -0.6,
   },
   appSubtitle: {
     fontSize: 12,
     color: COLORS.textMuted,
-    marginTop: 4,
+    marginTop: 2,
+    letterSpacing: -0.1,
+  },
+  eyebrowRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+  },
+  livePulseDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: '#22c55e',
+    shadowColor: '#22c55e',
+    shadowOpacity: 1,
+    shadowRadius: 6,
+  },
+  eyebrowText: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 2,
+    color: '#ff8a00',
   },
   bellButton: {
     width: 40,

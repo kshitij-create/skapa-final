@@ -9,7 +9,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from auth import router as auth_router
 from config import settings
 from db import close_db, init_db
+from drops import router as drops_router
 from me import router as me_router
+from rooms import router as rooms_router
 
 
 @asynccontextmanager
@@ -38,3 +40,5 @@ async def health():
 
 app.include_router(auth_router)
 app.include_router(me_router)
+app.include_router(drops_router)
+app.include_router(rooms_router)

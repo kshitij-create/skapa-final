@@ -16,8 +16,10 @@ import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { COLORS } from '../theme';
 import { Waveform } from '../components/Waveform';
 import { ShareProfileCard } from '../components/ShareProfileCard';
+import { ChooseVibeModal } from '../components/ChooseVibeModal';
 import { useAuth } from '../auth/AuthContext';
 import { apiFetch } from '../auth/api';
+import { getVibe, Vibe } from '../state/localStore';
 
 // ─── Fallback data ───────────────────────────────────────────────────────────
 const FALLBACK_COVER = 'https://i.scdn.co/image/ab67616d00001e028863bc11d2aa12b54f5aeb36';
@@ -72,9 +74,15 @@ export const ProfileScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const { user, signOut } = useAuth();
   const [shareOpen, setShareOpen] = useState(false);
+  const [vibeOpen, setVibeOpen] = useState(false);
+  const [localVibe, setLocalVibe] = useState<Vibe | null>(null);
   const [topTracks, setTopTracks] = useState<SpotifyTrack[]>([]);
   const [topArtists, setTopArtists] = useState<SpotifyArtist[]>([]);
   const [nowPlaying, setNowPlaying] = useState<SpotifyTrack | null>(null);
+
+  useEffect(() => {
+    getVibe().then(v => v && setLocalVibe(v));
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -97,7 +105,10 @@ export const ProfileScreen: React.FC = () => {
   const handle = user.handle ? `@${user.handle}` : '';
   const avatarUrl = user.avatar_url || `https://i.pravatar.cc/300?u=${user.id}`;
   const bio = user.profile?.bio || 'Tap Edit Profile to add a bio';
-  const vibe = user.vibe || { emoji: '🌊', label: 'Late Night' };
+  // Prefer locally-stored vibe (set via ChooseVibe / modal) over server default
+  const vibe = localVibe
+    ? { emoji: localVibe.emoji, label: localVibe.label }
+    : user.vibe || { emoji: '🌊', label: 'Late Night' };
   const stats = {
     following: user.stats?.following ?? 0,
     followers: user.stats?.followers ?? 0,
@@ -131,6 +142,13 @@ export const ProfileScreen: React.FC = () => {
           currentTrack,
           profileUrl,
         }}
+      />
+
+      {/* Vibe picker modal */}
+      <ChooseVibeModal
+        visible={vibeOpen}
+        onClose={() => setVibeOpen(false)}
+        onSaved={v => setLocalVibe(v)}
       />
 
       {/* Header action bar */}
@@ -258,11 +276,15 @@ export const ProfileScreen: React.FC = () => {
                 </View>
                 <Text style={styles.nowPlayingTitle} numberOfLines={1}>{currentTrack.title}</Text>
                 <Text style={styles.nowPlayingArtist} numberOfLines={1}>{currentTrack.artist}</Text>
-                <View style={styles.vibeChip}>
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => setVibeOpen(true)}
+                  style={styles.vibeChip}
+                >
                   <Text style={styles.vibeChipText}>
-                    {vibe.emoji}  {vibe.label}
+                    {vibe.emoji}  {vibe.label}  <Text style={{ color: 'rgba(216,180,254,0.6)' }}>tap to change</Text>
                   </Text>
-                </View>
+                </TouchableOpacity>
               </View>
             </View>
           </TouchableOpacity>

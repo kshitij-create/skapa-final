@@ -1,115 +1,108 @@
-# SKAPA — Design Refinement + Shareable Vibe Card + Spotify Auth
+# SKAPA — Session 5 (Real Listening Rooms + WebSocket presence)
 
-## Original Problem Statement
-> Refine the whole design of app. Make the app more aesthetic and professional, don't do drastic changes.
-
-Follow-ups:
-> Run the Expo app and validate Map/Onboarding/Profile visuals on device
-> Build a shareable Profile card (gradient poster with current vibe + top track QR link)
-> Enable Spotify-only sign-ups via OAuth — design secure DB + flow
+## Original Problem Statement / Session ask
+> Real Listening Rooms (WebSocket presence) do it and make the design playful and aesthetic
 
 ## App Overview
-SKAPA — React Native / Expo social music app. Users sign up via Spotify, broadcast what they're listening to, see friends' live music on a map, and join listening rooms.
+SKAPA — Expo / React Native social music app. Dark + amber aesthetic. Features so far:
+- Polished onboarding · Map with live avatars + "Drop a Vibe" pins · Profile with shareable vibe card · Spotify sign-up (built, deferred pending Premium) · KMS envelope-encryption · **Real Listening Rooms** (new)
 
-## Tech Stack
-**Mobile**: Expo 55 · React Native 0.83 · React 19 · TypeScript · react-native-reanimated 4 + worklets 0.7.2 · expo-auth-session (PKCE) · expo-secure-store · expo-crypto · expo-web-browser · react-native-view-shot · react-native-qrcode-svg · expo-sharing · expo-media-library
-
-**Backend**: FastAPI · uvicorn · motor (async MongoDB) · pydantic v2 · httpx · python-jose (HS256 JWT) · cryptography (AES-256-GCM) · pydantic-settings
+## Tech Stack (adds)
+- Backend: FastAPI WebSockets (native), in-memory connection manager, MongoDB rooms collection
+- Mobile: `@react-native-async-storage/async-storage`, new hook `useRoomSocket`, `FloatingReaction` + `RoomOrbit` animated components
 
 ## Architecture
 
 ```
-Expo app ──(PKCE code + verifier)──► Backend ──► Spotify token exchange
-                                       │
-                                       ├── MongoDB: users, sessions
-                                       └── Issues session JWT (HS256, 30d, jti)
-Expo stores JWT in SecureStore (Keychain/Keystore)
+App (Expo) ──(WebSocket, wss://.../ws/rooms/{code})──► Backend
+                                                           │
+                                                           ├── /api/rooms (REST CRUD)
+                                                           ├── RoomConnections (in-memory per-pod)
+                                                           └── MongoDB.rooms (persisted metadata)
 ```
 
-## What's been implemented
+## Session 5 delivery
 
-### Phase 1 — design polish (Jan 2026)
-Theme tokens, OnboardingProgress & DisplayPill components, refined OnboardingCTA, polished all 3 onboarding screens, polished Map (segmented toggle, search pill, dual-ring avatars, richer sheet), new full Profile screen, wired ProfileScreen into navigator.
+### Backend (`/app/backend/rooms.py` NEW)
+- **REST**:
+  - `POST /api/rooms` create (auto-gen 6-char uppercase code, unique-indexed)
+  - `GET /api/rooms` list (sorted by `last_active_at` desc; merges live presence counts)
+  - `GET /api/rooms/{code}` single lookup (case-insensitive)
+- **WebSocket** `/ws/rooms/{code}`:
+  - Handshake: `{type:"hello", user:{id,name,avatar}}` (rejects if missing, close code 4000)
+  - Server broadcasts: `room_state` (initial), `member_joined`, `member_left`, `reaction`, `now_playing`
+  - Client can send: `reaction`, `now_playing` (persists to Mongo), `ping` → `pong`
+- `RoomConnections` — async-safe, per-room member dict; dead-socket cleanup on broadcast failure
+- Mongo indexes: `rooms.code` unique, `rooms.last_active_at -1`
 
-### Phase 2 — shareable vibe card
-`/app/src/components/ShareProfileCard.tsx` — 9:16 mood-gradient poster with avatar ring, CURRENT VIBE pill, LISTENING NOW row, QR code, Save (Photos) + Share to Stories (system share sheet) actions.
+### Mobile
 
-### Phase 3 — Spotify OAuth sign-up
-**Backend (new `/app/backend/`)**:
-- `server.py` — FastAPI app, `/api/health`, lifespan opens/closes Mongo, CORS
-- `config.py` — pydantic-settings pulling MONGO_URL, DB_NAME, SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, JWT_SECRET, TOKEN_ENCRYPTION_KEY
-- `security.py` — AES-256-GCM encrypt/decrypt, HS256 JWT with jti+30d exp, `current_user` dependency (bearer + revocation check)
-- `db.py` — motor client, indexes (users.spotify_id unique, users.handle unique sparse, sessions.jti unique, sessions.expires_at TTL), `upsert_spotify_user`, `revoke_session`, `public_user`
-- `auth.py` — `POST /api/auth/spotify/callback`, `POST /api/auth/refresh`, `POST /api/auth/logout`, `POST /api/auth/spotify/disconnect`
-- `me.py` — `GET /api/me`, `GET /api/me/now-playing`, `GET /api/me/top-tracks`, `GET /api/me/top-artists`, `PUT /api/me/vibe` (with transparent Spotify-token refresh)
-- Refresh tokens stored **AES-256-GCM encrypted at rest** (`spotify.refresh_token_enc`)
-- Session revocation list (`sessions` collection) with TTL auto-cleanup
+**New pieces**
+- `/app/src/state/identity.ts` — persistent guest identity (random "Neon Echo / Midnight Phoenix" style names, pravatar)
+- `/app/src/hooks/useRoomSocket.ts` — connect + handshake + event dispatcher + helper senders
+- `/app/src/components/FloatingReaction.tsx` — reanimated particle that drifts upward, wiggles, fades
+- `/app/src/components/RoomOrbit.tsx` — member avatars orbit on a dashed ring, host wears 👑
+- `/app/src/components/CreateRoomModal.tsx` — name + mood + opening track composer
+- `/app/src/navigation/RoomsStack.tsx` — stack: RoomsList (root) → ListeningRoom (bottom-sheet animation)
 
-**Mobile app**:
-- `/app/src/auth/api.ts` — fetch wrapper that injects JWT from SecureStore
-- `/app/src/auth/AuthContext.tsx` — AuthProvider with `useAuthRequest` PKCE setup, `signInWithSpotify`, `signOut`, `refreshUser`, boot-time `/api/me` hydration
-- `App.tsx` — wraps everything in `AuthProvider`; `RootRouter` swaps between Onboarding and Main based on user state; shows spinner during `booting`
-- `ConnectMusicScreen` — now triggers the real PKCE flow (loading state, error alerts, disabled state)
-- `ProfileScreen` — fully wired to real user data (name/handle/avatar/vibe from `/api/me`), real top-tracks, real top-artists, real now-playing; Log out opens confirm dialog that calls `signOut()`
-- `MainNavigator` — tab bar avatar uses live user avatar
-- `app.json` — added `"scheme": "skapa"` so `skapa://auth/callback` works for standalone builds
+**Full rewrites**
+- `/app/src/screens/RoomsScreen.tsx` — live list with pulsing LIVE dot, mood-colored hero card (blurred album cover behind), compact list rows with member-avatar stack, join-by-code input, multi-stop gradient "New Room" FAB
+- `/app/src/screens/ListeningRoomScreen.tsx` — rotating vinyl record (with grooves + center hole) at the stage center, orbiting members around it, mood-gradient sky, floating emoji reactions layer, 8-button quick-reaction bar, now-playing card with live-listener count pulse, share + leave controls, graceful error state explaining the WS-ingress caveat when connections fail
 
-### Environment files
-- `/app/backend/.env` — MONGO_URL, DB_NAME=skapa, SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, JWT_SECRET (96 hex chars), TOKEN_ENCRYPTION_KEY (32-byte base64), CORS_ORIGINS=*
-- `/app/.env` — EXPO_PUBLIC_BACKEND_URL, EXPO_PUBLIC_SPOTIFY_CLIENT_ID (public, Client Secret never shipped)
+**Playful / aesthetic touches**
+- Vinyl rotates continuously + pulse-bumps on every `now_playing` change
+- Members orbit slowly (45s/rev) around the vinyl
+- Reactions float with random drift and rotation, echo locally for the sender
+- Hero card on RoomsList uses blurred album cover as ambient background → atmosphere
+- Crown emoji on the host avatar inside the orbit
+- FAB gradient: `a855f7 → ec4899 → ff8a00` for a Snapchat-ish pop
+
+### Navigator change
+- "Discover" tab now shows `HomeScreen` (was RoomsScreen)
+- "Rooms" tab is now a **stack** (RoomsList → ListeningRoom), replacing the old standalone ListeningRoomScreen
 
 ## Testing
-- Phase 3 backend tested end-to-end by `testing_agent_v3`: **24/24 tests pass (100%)**
-- Validated: validation errors (422), auth errors (401), revocation-after-logout (401), encrypted-at-rest refresh tokens, JWT HS256+jti+30d, indexes, CORS, Spotify error passthrough
-- Test suites preserved at `/app/backend/tests/test_skapa_api.py`, `/app/backend/tests/test_authenticated_flows.py`
+- **67/67 backend tests passed** (49 regression + 18 new) via `testing_agent_v3`
+  - REST: create, list, get (case-insensitive), 404, 422 validation, code uniqueness
+  - WebSocket: handshake, reject bad hello, invalid room, ping/pong, member_joined, member_left, reaction broadcast, now_playing broadcast + Mongo persistence, live_count from REST reflects WS presence
+- Test file: `/app/backend/tests/test_rooms_ws.py`
 
-## Spotify Developer Dashboard — user action required
-In <https://developer.spotify.com/dashboard> → app Settings → Redirect URIs, add:
-```
-skapa://auth/callback
-exp://127.0.0.1:8081/--/auth/callback
-exp://localhost:8081/--/auth/callback
-https://auth.expo.io/@anonymous/skapa-final
-```
+## ⚠️ Platform caveat — WebSocket on the Emergent preview URL
+The Kubernetes ingress in front of `https://…preview.emergentagent.com` does **not proxy WebSocket connections** (HTTP 502 on the `wss://` upgrade). Consequences:
+- REST endpoints (drops, rooms CRUD, /api/me, etc.) work fine on the preview URL
+- **`/ws/rooms/{code}` only works when the client connects directly to the FastAPI pod** (`ws://localhost:8001/ws/...` during backend test) or to a host that supports WS upgrades (Railway / Fly.io / Render / a cloud VM)
+- The in-app error state shows a tip telling the user to run backend locally or deploy somewhere WS-capable
+- 67/67 backend tests pass against `ws://localhost:8001` — the code is correct; only infra is limited
 
-## Files (new/modified this session)
+## Files (new / modified this session)
 ```
-/app/backend/server.py                                (new)
-/app/backend/config.py                                (new)
-/app/backend/security.py                              (new)
-/app/backend/db.py                                    (new)
-/app/backend/auth.py                                  (new)
-/app/backend/me.py                                    (new)
-/app/backend/requirements.txt                         (new)
-/app/backend/.env                                     (new)
-/app/.env                                             (new)
-/app/app.json                                         (scheme added)
-/app/App.tsx                                          (auth provider + router)
-/app/src/auth/api.ts                                  (new)
-/app/src/auth/AuthContext.tsx                         (new)
-/app/src/screens/onboarding/ConnectMusicScreen.tsx    (real Spotify sign-in)
-/app/src/screens/ProfileScreen.tsx                    (real data + logout)
-/app/src/navigation/MainNavigator.tsx                 (live avatar)
-/app/src/theme/index.ts                               (phase 1)
-/app/src/components/OnboardingProgress.tsx            (phase 1)
-/app/src/components/DisplayPill.tsx                   (phase 1)
-/app/src/components/OnboardingCTA.tsx                 (phase 1)
-/app/src/components/ShareProfileCard.tsx              (phase 2)
-/app/src/screens/onboarding/EmotionalHookScreen.tsx   (phase 1)
-/app/src/screens/onboarding/ChooseVibeScreen.tsx      (phase 1)
-/app/src/screens/LivePresenceScreen.tsx               (phase 1)
+NEW:
+/app/backend/rooms.py
+/app/src/state/identity.ts
+/app/src/hooks/useRoomSocket.ts
+/app/src/components/FloatingReaction.tsx
+/app/src/components/RoomOrbit.tsx
+/app/src/components/CreateRoomModal.tsx
+/app/src/navigation/RoomsStack.tsx
+
+MODIFIED:
+/app/backend/server.py     (mount rooms_router)
+/app/backend/db.py         (rooms indexes)
+/app/src/screens/RoomsScreen.tsx            (full rewrite)
+/app/src/screens/ListeningRoomScreen.tsx    (full rewrite)
+/app/src/navigation/MainNavigator.tsx       (RoomsStack; Discover → HomeScreen)
 ```
 
-## Prioritized Backlog
-- P1: Listening-events ingestion — poll `/me/now-playing` every 30-60s while app is foregrounded, write to MongoDB, power the Map page with real users
-- P1: Friend graph, follow/unfollow, friends-nearby
-- P2: Apply design polish to HomeScreen, RoomsScreen, ListeningRoomScreen
-- P2: Real Listening Rooms (WebSocket-based presence + synced playback state, not audio)
-- P2: Rotate `TOKEN_ENCRYPTION_KEY` & `SPOTIFY_CLIENT_SECRET` (user pasted secret in chat — should rotate)
-- P3: Move `TOKEN_ENCRYPTION_KEY` to a KMS for envelope encryption
-- P3: Add rate limiting on `/api/auth/*`
-- P3: Profile edit modal
+## Prioritized Backlog (remaining)
+- P1: WebSocket-capable deploy target (Railway/Fly.io) so the mobile app can talk to rooms in production
+- P1: Spotify Premium sub OR pivot to Google sign-in
+- P1: Listening-events ingestion (poll `/me/now-playing` → Mongo → real users on Map)
+- P2: Multi-worker rooms — swap the in-memory `RoomConnections` for Redis pub/sub
+- P2: Friend graph (follow + friends-nearby)
+- P2: Room search & discovery filters by mood
+- P3: Chat in rooms (server side is ready for another message type)
+- P3: Cloud KMS provider (AWS/GCP); rate limits; profile edit modal
 
-## Credentials
-- Spotify test credentials are in `/app/backend/.env` (user-provided). Recommend rotation after development.
-- No password-based auth — Spotify OAuth is the sole login method.
+## Notes for next session
+- Running Expo on your laptop + backend on same machine: in `/app/.env` set `EXPO_PUBLIC_BACKEND_URL=http://<your-LAN-ip>:8001` — device on the same Wi-Fi can then do WebSockets.
+- All REST endpoints remain functional on the preview URL so Drops, Profile, Rooms CRUD, etc. work regardless of WS.
