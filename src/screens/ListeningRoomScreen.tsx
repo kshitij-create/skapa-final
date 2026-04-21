@@ -191,15 +191,23 @@ const RoomBody: React.FC<{
           </TouchableOpacity>
         </View>
 
-        {/* Loading */}
+        {/* Loading / error */}
         {state !== 'open' && !room && (
           <View style={styles.loading}>
             <ActivityIndicator size="large" color={color} />
             <Text style={styles.loadingText}>
               {state === 'error' || state === 'closed'
-                ? 'Connection lost — reconnecting…'
+                ? 'Could not connect to the room'
                 : 'Joining the room…'}
             </Text>
+            {(state === 'error' || state === 'closed') && (
+              <View style={styles.wsHint}>
+                <Ionicons name="information-circle-outline" size={14} color="rgba(255,255,255,0.55)" />
+                <Text style={styles.wsHintText}>
+                  Real-time presence needs a WebSocket-capable host. If you're pointing at the Emergent preview URL, WS is blocked there — run the backend locally or deploy to Railway/Fly/Render.
+                </Text>
+              </View>
+            )}
           </View>
         )}
 
@@ -349,8 +357,17 @@ const styles = StyleSheet.create({
   },
 
   // Loading
-  loading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  loading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingHorizontal: 32 },
   loadingText: { color: 'rgba(255,255,255,0.6)', fontSize: 13 },
+  wsHint: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 8,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 14, padding: 12, marginTop: 10, maxWidth: 340,
+  },
+  wsHintText: {
+    color: 'rgba(255,255,255,0.55)', fontSize: 11, lineHeight: 16, flex: 1,
+  },
 
   // Title
   titleArea: { alignItems: 'center', paddingTop: 22, paddingHorizontal: 24 },

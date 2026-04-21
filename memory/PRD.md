@@ -1,108 +1,108 @@
-# SKAPA — Session 4 (Drops + KMS + ChooseVibe polish)
+# SKAPA — Session 5 (Real Listening Rooms + WebSocket presence)
 
-## Original Problem Statement
-> Refine the whole design of app (done) → shareable vibe card (done) → Spotify auth (blocked by Spotify Premium policy — deferred)
-> Session 4: "Add one full feature from Backlog, move TOKEN_ENCRYPTION_KEY to KMS, polish ChooseVibe"
-> Feature chosen: **(b) "Drop a Vibe" on Map** + **(c) Design polish for Home/Rooms/ListeningRoom**
+## Original Problem Statement / Session ask
+> Real Listening Rooms (WebSocket presence) do it and make the design playful and aesthetic
 
 ## App Overview
-SKAPA — React Native / Expo social music app. Users see who's vibing around them on a live map, drop tracks with a mood as pins others can tune into, and (when Spotify OAuth is unblocked) sign up with Spotify.
+SKAPA — Expo / React Native social music app. Dark + amber aesthetic. Features so far:
+- Polished onboarding · Map with live avatars + "Drop a Vibe" pins · Profile with shareable vibe card · Spotify sign-up (built, deferred pending Premium) · KMS envelope-encryption · **Real Listening Rooms** (new)
 
-## Tech Stack
-**Mobile**: Expo 55 · RN 0.83 · React 19 · TypeScript · reanimated 4 · expo-auth-session (deferred) · expo-secure-store · react-native-view-shot · react-native-qrcode-svg · **@react-native-async-storage/async-storage** (new)
-
-**Backend**: FastAPI · motor (Mongo) · httpx · python-jose (HS256 JWT) · cryptography (AES-256-GCM) · pydantic v2
+## Tech Stack (adds)
+- Backend: FastAPI WebSockets (native), in-memory connection manager, MongoDB rooms collection
+- Mobile: `@react-native-async-storage/async-storage`, new hook `useRoomSocket`, `FloatingReaction` + `RoomOrbit` animated components
 
 ## Architecture
 
 ```
-Expo app ──► Backend (FastAPI) ──► Mongo
-                 │
-                 ├── KMS (LocalKmsProvider) ──► envelope encrypt/decrypt
-                 └── Drops TTL'd (24h) via Mongo TTL index
+App (Expo) ──(WebSocket, wss://.../ws/rooms/{code})──► Backend
+                                                           │
+                                                           ├── /api/rooms (REST CRUD)
+                                                           ├── RoomConnections (in-memory per-pod)
+                                                           └── MongoDB.rooms (persisted metadata)
 ```
 
-## This session's delivery
+## Session 5 delivery
 
-### 1. KMS envelope encryption (`/app/backend/kms.py` — NEW)
-- Pluggable `KmsProvider` interface with `LocalKmsProvider` as the default
-- **Envelope encryption**: every encrypt generates a fresh DEK, encrypts payload with DEK, wraps DEK with KEK. Forward-secrecy: leaking one DEK exposes just one token, never the whole DB.
-- Envelope format: `base64(json({v:1, k:key_id, d:wrapped_dek, n:nonce, c:ciphertext}))`
-- **Backward compatible**: `envelope_decrypt` transparently falls back to the legacy v0 raw-AES-GCM format for data written before KMS was added → zero-downtime migration
-- **Rotation-ready**: `key_id` stored per blob; add `KEK_local_v2=<base64>` to env to rotate — old blobs still decrypt
-- Cloud path: swap `LocalKmsProvider` with `AwsKmsProvider` / `GcpKmsProvider` one day — one line in `kms.py`
-- `security.encrypt_token` / `decrypt_token` now delegate to `envelope_encrypt/decrypt` — drop-in replacement
+### Backend (`/app/backend/rooms.py` NEW)
+- **REST**:
+  - `POST /api/rooms` create (auto-gen 6-char uppercase code, unique-indexed)
+  - `GET /api/rooms` list (sorted by `last_active_at` desc; merges live presence counts)
+  - `GET /api/rooms/{code}` single lookup (case-insensitive)
+- **WebSocket** `/ws/rooms/{code}`:
+  - Handshake: `{type:"hello", user:{id,name,avatar}}` (rejects if missing, close code 4000)
+  - Server broadcasts: `room_state` (initial), `member_joined`, `member_left`, `reaction`, `now_playing`
+  - Client can send: `reaction`, `now_playing` (persists to Mongo), `ping` → `pong`
+- `RoomConnections` — async-safe, per-room member dict; dead-socket cleanup on broadcast failure
+- Mongo indexes: `rooms.code` unique, `rooms.last_active_at -1`
 
-### 2. Drop a Vibe — core social feature
-**Backend** (`/app/backend/drops.py` — NEW):
-- `POST /api/drops` create a drop (track + mood + caption + coords + mock user)
-- `GET /api/drops?limit=50` list recent (TTL-filtered)
-- `POST /api/drops/{id}/wave` increment waves counter
-- `POST /api/drops/{id}/tune-in` increment tune-ins
-- Mongo indexes: `drops.expires_at` TTL (auto-deletes after 24h) + `drops.created_at -1`
-- Validates lat/lng bounds, caption length (180), field presence → 422 on bad payload, 404 on missing drop, 400 on bad ObjectId
+### Mobile
 
-**Frontend**:
-- **`DropVibeModal.tsx`** — bottom-sheet composer: horizontal track carousel (curated list for MVP; swap for Spotify search once auth is unblocked) → mood picker → optional caption → gradient "Drop it" CTA. Mood-tinted gradient background. Loading + error states handled.
-- **`LivePresenceScreen`**: FAB now opens the Drop modal; map renders live drops as pulsing diamond pins colored by mood; tapping shows a glass preview bubble with user/track/caption + Wave & Tune In actions (both POST to backend)
-- Auto-refreshes drops every 20 s
-- `/app/src/state/publicApi.ts` — tiny fetch wrapper for unauthed endpoints
+**New pieces**
+- `/app/src/state/identity.ts` — persistent guest identity (random "Neon Echo / Midnight Phoenix" style names, pravatar)
+- `/app/src/hooks/useRoomSocket.ts` — connect + handshake + event dispatcher + helper senders
+- `/app/src/components/FloatingReaction.tsx` — reanimated particle that drifts upward, wiggles, fades
+- `/app/src/components/RoomOrbit.tsx` — member avatars orbit on a dashed ring, host wears 👑
+- `/app/src/components/CreateRoomModal.tsx` — name + mood + opening track composer
+- `/app/src/navigation/RoomsStack.tsx` — stack: RoomsList (root) → ListeningRoom (bottom-sheet animation)
 
-### 3. ChooseVibe polish
-- Persists to `AsyncStorage` via `/app/src/state/localStore.ts` (`getVibe` / `setVibe`)
-- **Confetti burst** (`VibeConfetti.tsx` — 24 radial particles w/ reanimated) triggers on each mood select
-- Subtle scale pulse on the grid when a new mood is picked
-- CTA label reflects selection ("Enter with Late Night")
-- **Reusable as a modal** (`ChooseVibeModal.tsx`) — accessible from Profile: tap the "🌊 Late Night" chip → mood grid opens in a sheet → pick + save
-- Profile hydrates the vibe from AsyncStorage on mount, so picking in onboarding immediately reflects on Profile
+**Full rewrites**
+- `/app/src/screens/RoomsScreen.tsx` — live list with pulsing LIVE dot, mood-colored hero card (blurred album cover behind), compact list rows with member-avatar stack, join-by-code input, multi-stop gradient "New Room" FAB
+- `/app/src/screens/ListeningRoomScreen.tsx` — rotating vinyl record (with grooves + center hole) at the stage center, orbiting members around it, mood-gradient sky, floating emoji reactions layer, 8-button quick-reaction bar, now-playing card with live-listener count pulse, share + leave controls, graceful error state explaining the WS-ingress caveat when connections fail
 
-### 4. Design-polish pass on Home + Rooms
-- Both screens now use the unified dark palette (`#050505`) instead of warm-brown
-- Consistent eyebrow pattern (orange `HOME · LIVE` / `LISTENING ROOMS · LIVE` w/ pulse dot)
-- Typography harmonised: 700 weight + -0.6 letter-spacing on page titles to match Map/Profile
-- `ListeningRoomScreen` already aligned with refined aesthetic — no change
-- Ambient-glow colors swapped to the mood palette (violet/amber instead of the old warm orange)
+**Playful / aesthetic touches**
+- Vinyl rotates continuously + pulse-bumps on every `now_playing` change
+- Members orbit slowly (45s/rev) around the vinyl
+- Reactions float with random drift and rotation, echo locally for the sender
+- Hero card on RoomsList uses blurred album cover as ambient background → atmosphere
+- Crown emoji on the host avatar inside the orbit
+- FAB gradient: `a855f7 → ec4899 → ff8a00` for a Snapchat-ish pop
 
-## Files (new or modified this session)
-```
-NEW:
-/app/backend/kms.py
-/app/backend/drops.py
-/app/src/state/localStore.ts
-/app/src/state/publicApi.ts
-/app/src/components/DropVibeModal.tsx
-/app/src/components/VibeConfetti.tsx
-/app/src/components/ChooseVibeModal.tsx
-
-MODIFIED:
-/app/backend/security.py         (encrypt_token → envelope_encrypt)
-/app/backend/server.py           (mounts drops_router)
-/app/backend/db.py               (drops indexes)
-/app/src/screens/onboarding/ChooseVibeScreen.tsx
-/app/src/screens/LivePresenceScreen.tsx
-/app/src/screens/ProfileScreen.tsx
-/app/src/screens/HomeScreen.tsx
-/app/src/screens/RoomsScreen.tsx
-/app/package.json                (async-storage 2.2.0)
-```
+### Navigator change
+- "Discover" tab now shows `HomeScreen` (was RoomsScreen)
+- "Rooms" tab is now a **stack** (RoomsList → ListeningRoom), replacing the old standalone ListeningRoomScreen
 
 ## Testing
-- **49/49 backend tests passed** via `testing_agent_v3` (24 regression from iteration_1 + 25 new)
-- KMS: round-trip, per-encryption DEK uniqueness, legacy v0 compatibility, key-id recording
-- Drops: all CRUD + validation + TTL + indexes + wave/tune-in counters + 400/404 handling
-- Test files: `/app/backend/tests/test_kms_and_drops.py`
+- **67/67 backend tests passed** (49 regression + 18 new) via `testing_agent_v3`
+  - REST: create, list, get (case-insensitive), 404, 422 validation, code uniqueness
+  - WebSocket: handshake, reject bad hello, invalid room, ping/pong, member_joined, member_left, reaction broadcast, now_playing broadcast + Mongo persistence, live_count from REST reflects WS presence
+- Test file: `/app/backend/tests/test_rooms_ws.py`
+
+## ⚠️ Platform caveat — WebSocket on the Emergent preview URL
+The Kubernetes ingress in front of `https://…preview.emergentagent.com` does **not proxy WebSocket connections** (HTTP 502 on the `wss://` upgrade). Consequences:
+- REST endpoints (drops, rooms CRUD, /api/me, etc.) work fine on the preview URL
+- **`/ws/rooms/{code}` only works when the client connects directly to the FastAPI pod** (`ws://localhost:8001/ws/...` during backend test) or to a host that supports WS upgrades (Railway / Fly.io / Render / a cloud VM)
+- The in-app error state shows a tip telling the user to run backend locally or deploy somewhere WS-capable
+- 67/67 backend tests pass against `ws://localhost:8001` — the code is correct; only infra is limited
+
+## Files (new / modified this session)
+```
+NEW:
+/app/backend/rooms.py
+/app/src/state/identity.ts
+/app/src/hooks/useRoomSocket.ts
+/app/src/components/FloatingReaction.tsx
+/app/src/components/RoomOrbit.tsx
+/app/src/components/CreateRoomModal.tsx
+/app/src/navigation/RoomsStack.tsx
+
+MODIFIED:
+/app/backend/server.py     (mount rooms_router)
+/app/backend/db.py         (rooms indexes)
+/app/src/screens/RoomsScreen.tsx            (full rewrite)
+/app/src/screens/ListeningRoomScreen.tsx    (full rewrite)
+/app/src/navigation/MainNavigator.tsx       (RoomsStack; Discover → HomeScreen)
+```
 
 ## Prioritized Backlog (remaining)
-- P1: Spotify Premium sub OR pivot to Google/Apple sign-in so auth ships
-- P1: Listening-events ingestion (poll /me/now-playing → Mongo → real users on map)
-- P1: Friend graph (follow / followers / friends-nearby)
-- P2: Real Listening Rooms (WebSocket presence + synced now-playing)
-- P2: Move DropVibeModal's curated track list → real Spotify search (once auth lands)
-- P3: Move `TOKEN_ENCRYPTION_KEY` → AWS KMS / GCP KMS (plumbing is already pluggable)
-- P3: Rate-limiting on `/api/drops` and `/api/auth/*`
-- P3: Profile edit modal
+- P1: WebSocket-capable deploy target (Railway/Fly.io) so the mobile app can talk to rooms in production
+- P1: Spotify Premium sub OR pivot to Google sign-in
+- P1: Listening-events ingestion (poll `/me/now-playing` → Mongo → real users on Map)
+- P2: Multi-worker rooms — swap the in-memory `RoomConnections` for Redis pub/sub
+- P2: Friend graph (follow + friends-nearby)
+- P2: Room search & discovery filters by mood
+- P3: Chat in rooms (server side is ready for another message type)
+- P3: Cloud KMS provider (AWS/GCP); rate limits; profile edit modal
 
-## Notes
-- Drops auto-expire after 24h via Mongo TTL index — no cron needed
-- DropVibeModal posts with a hardcoded "You" mock user (no auth yet); easy swap to real user when auth lands
-- Backend URL: https://1e23550a-aef8-41ec-bafc-7efe3da04521.preview.emergentagent.com
+## Notes for next session
+- Running Expo on your laptop + backend on same machine: in `/app/.env` set `EXPO_PUBLIC_BACKEND_URL=http://<your-LAN-ip>:8001` — device on the same Wi-Fi can then do WebSockets.
+- All REST endpoints remain functional on the preview URL so Drops, Profile, Rooms CRUD, etc. work regardless of WS.
