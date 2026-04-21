@@ -28,6 +28,9 @@ async def init_db():
     # Drops: TTL + recent-first query
     await _db.drops.create_index("expires_at", expireAfterSeconds=0)
     await _db.drops.create_index([("created_at", -1)])
+    # Rooms
+    await _db.rooms.create_index("code", unique=True)
+    await _db.rooms.create_index([("last_active_at", -1)])
 
 
 async def close_db():

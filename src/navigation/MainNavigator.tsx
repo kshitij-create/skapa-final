@@ -5,9 +5,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { HomeScreen } from '../screens/HomeScreen';
 import { LivePresenceScreen } from '../screens/LivePresenceScreen';
-import { ListeningRoomScreen } from '../screens/ListeningRoomScreen';
-import { RoomsScreen } from '../screens/RoomsScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
+import { RoomsStack } from './RoomsStack';
 import { COLORS } from '../theme';
 import { useAuth } from '../auth/AuthContext';
 
@@ -95,7 +94,7 @@ export const MainNavigator = () => {
       {/* Tab 2: Discover / Grid */}
       <Tab.Screen
         name="Discover"
-        component={RoomsScreen}
+        component={HomeScreen}
         options={{
           tabBarIcon: ({ focused }: any) => (
             <Ionicons
@@ -114,10 +113,10 @@ export const MainNavigator = () => {
           tabBarIcon: () => null, // Rendered manually in CustomTabBar
         }}
       />
-      {/* Tab 4: Rooms / Radio with badge */}
+      {/* Tab 4: Rooms (stack: list → listen) */}
       <Tab.Screen
         name="Rooms"
-        component={ListeningRoomScreen}
+        component={RoomsStack}
         options={{
           tabBarIcon: ({ focused }: any) => (
             <View style={{ position: 'relative' }}>
