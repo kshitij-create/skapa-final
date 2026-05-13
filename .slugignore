@@ -1,0 +1,30 @@
+# Ignore frontend/mobile app files during backend deployment
+node_modules/
+src/
+assets/
+package.json
+package-lock.json
+tsconfig.json
+app.json
+App.tsx
+index.ts
+*.tsx
+*.ts
+!backend/**/*.py
+
+# Ignore test and documentation
+test_reports/
+tests/
+*.md
+!backend/**/*.md
+
+# Ignore git and IDE files
+.git/
+.vscode/
+.idea/
+.DS_Store
+
+# Ignore environment files (will be set in Render dashboard)
+.env
+.env.*
+!backend/.env.example

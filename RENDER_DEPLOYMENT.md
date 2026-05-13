@@ -149,14 +149,15 @@ Here's a checklist format you can use:
 2. Sign up with GitHub
 3. Click "New +" → "Web Service"
 4. Select your `skapa-backend` repo
-5. Settings:
+5. **IMPORTANT Settings:**
    - **Name:** `skapa-backend`
    - **Region:** Singapore (or closest to you)
    - **Branch:** `main`
-   - **Root Directory:** Leave blank
+   - **Root Directory:** `backend` ⚠️ **MUST SET THIS!**
    - **Environment:** `Python 3`
-   - **Build Command:** `pip install -r backend/requirements.txt`
-   - **Start Command:** `cd backend && uvicorn server:app --host 0.0.0.0 --port $PORT`
+   - **Python Version:** `3.11.0`
+   - **Build Command:** `pip install -r requirements.txt`
+   - **Start Command:** `uvicorn server:app --host 0.0.0.0 --port $PORT`
 
 ### Step 3: Add Environment Variables
 1. Scroll down to "Environment Variables"
