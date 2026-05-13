@@ -42,8 +42,6 @@ import { FloatingReaction } from '../components/FloatingReaction';
 import { ChatPanel } from '../components/ChatPanel';
 import { EnhancedReactionBar } from '../components/EnhancedReactionBar';
 
-const QUICK_REACTIONS = ['🔥', '❤️', '🎉', '🙌', '😭', '🤘', '💫', '🌙'];
-
 export const ListeningRoomScreen: React.FC<{ navigation: any; route?: any }> = ({
   navigation,
   route,
