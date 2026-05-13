@@ -31,16 +31,15 @@ const RootRouter: React.FC = () => {
     );
   }
 
+  // DEMO MODE: Skip authentication, go straight to main app
   return (
     <NavigationContainer theme={MyTheme}>
       <RootStack.Navigator
         screenOptions={{ headerShown: false, animation: 'fade' }}
       >
-        {user ? (
-          <RootStack.Screen name="Main" component={MainNavigator} />
-        ) : (
-          <RootStack.Screen name="Onboarding" component={OnboardingNavigator} />
-        )}
+        <RootStack.Screen name="Main" component={MainNavigator} />
+        {/* Onboarding saved for later when backend is ready */}
+        {/* <RootStack.Screen name="Onboarding" component={OnboardingNavigator} /> */}
       </RootStack.Navigator>
     </NavigationContainer>
   );

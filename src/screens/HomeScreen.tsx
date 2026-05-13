@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SPACING, BORDER_RADIUS } from '../theme';
 import { VibeButton } from '../components/VibeButton';
+import { NotificationsModal } from '../components/NotificationsModal';
 
 const { width } = Dimensions.get('window');
 
@@ -18,9 +19,16 @@ const VIBES = [
 export const HomeScreen: React.FC = () => {
   const [activeVibe, setActiveVibe] = useState('focus');
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showNotificationsModal, setShowNotificationsModal] = useState(false);
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Notifications Modal */}
+      <NotificationsModal
+        visible={showNotificationsModal}
+        onClose={() => setShowNotificationsModal(false)}
+      />
+
       {/* Background Ambience */}
       <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
         <View style={styles.ambientTopRight} />
@@ -38,7 +46,7 @@ export const HomeScreen: React.FC = () => {
         </View>
         <TouchableOpacity
           style={styles.bellButton}
-          onPress={() => setShowNotifications(!showNotifications)}
+          onPress={() => setShowNotificationsModal(true)}
           activeOpacity={0.7}
         >
           <Ionicons name="notifications-outline" size={20} color={COLORS.text} />
@@ -46,36 +54,8 @@ export const HomeScreen: React.FC = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Notifications Dropdown */}
-      {showNotifications && (
-        <LinearGradient
-          colors={['#2b2b36', '#121216']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.notificationsMenu}
-        >
-          <Text style={styles.notificationsTitle}>Notifications</Text>
-
-          <TouchableOpacity style={styles.notificationItem}>
-            <Image source={{ uri: 'https://i.pravatar.cc/150?img=5' }} style={styles.notificationAvatar} />
-            <View style={styles.notificationContent}>
-              <Text style={styles.notificationText}><Text style={styles.notificationName}>Sarah Jenkins</Text> joined your listening room</Text>
-              <Text style={styles.notificationTime}>2m ago</Text>
-            </View>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={[styles.notificationItem, { marginBottom: 0 }]}>
-            <View style={styles.notificationIconWrap}>
-              <Ionicons name="musical-notes" size={16} color={COLORS.text} />
-            </View>
-            <View style={styles.notificationContent}>
-              <Text style={styles.notificationText}>Your room <Text style={styles.notificationName}>Midnight Drives</Text> is trending</Text>
-              <Text style={styles.notificationTime}>1h ago</Text>
-            </View>
-          </TouchableOpacity>
-        </LinearGradient>
-      )}
-
+      {/* Remove old notifications dropdown - replaced with modal */}
+      
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
 
         {/* Connection Status */}

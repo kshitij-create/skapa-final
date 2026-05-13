@@ -6,6 +6,7 @@ import { BlurView } from 'expo-blur';
 import { HomeScreen } from '../screens/HomeScreen';
 import { LivePresenceScreen } from '../screens/LivePresenceScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
+import { FriendsScreen } from '../screens/FriendsScreen';
 import { RoomsStack } from './RoomsStack';
 import { COLORS } from '../theme';
 import { useAuth } from '../auth/AuthContext';
@@ -19,7 +20,7 @@ const CustomTabBar = ({ state, descriptors, navigation }: any) => {
         {state.routes.map((route: any, index: number) => {
           const { options } = descriptors[route.key];
           const isFocused = state.index === index;
-          const isCenter = index === 2; // Map is the 3rd tab (index 2)
+          const isCenter = index === 2; // Map is still the 3rd tab (index 2)
 
           const onPress = () => {
             const event = navigation.emit({
@@ -91,17 +92,23 @@ export const MainNavigator = () => {
           ),
         }}
       />
-      {/* Tab 2: Discover / Grid */}
+      {/* Tab 2: Friends */}
       <Tab.Screen
-        name="Discover"
-        component={HomeScreen}
+        name="Friends"
+        component={FriendsScreen}
         options={{
           tabBarIcon: ({ focused }: any) => (
-            <Ionicons
-              name="grid-outline"
-              size={22}
-              color={focused ? '#fff' : 'rgba(255,255,255,0.4)'}
-            />
+            <View style={{ position: 'relative' }}>
+              <Ionicons
+                name="people-outline"
+                size={22}
+                color={focused ? '#fff' : 'rgba(255,255,255,0.4)'}
+              />
+              {/* Badge for friend requests */}
+              <View style={styles.badgeContainer}>
+                <Text style={styles.badgeText}>2</Text>
+              </View>
+            </View>
           ),
         }}
       />
