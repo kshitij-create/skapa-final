@@ -2,50 +2,46 @@
 
 > **Music feels better together.**
 
-SKAPA is a social music presence app built with React Native (Expo). It lets you broadcast what you're listening to, see what your friends are vibing to in real time, join shared listening rooms, and discover music happening around you — all wrapped in a polished, dark-mode-first UI.
+🎉 **Demo Mode Active** - This app runs entirely in the frontend with beautiful mock data. No backend, no deployment, no servers needed!
+
+SKAPA is a social music presence app built with React Native (Expo). It lets you see what your friends are listening to in real-time, join shared listening rooms, and discover music happening around you — all wrapped in a polished, dark-mode-first UI.
 
 ---
 
-## Features
-
-### 🏠 Home
-- Set your current **vibe** (Deep Focus, High Energy, Late Night, Chill)
-- View your **Spotify connection** status and live broadcast indicator
-- Browse and join **Recent Rooms** from friends
-- In-app **notification tray** for room and friend activity
+## 🎨 Demo Features
 
 ### 🗺️ Music Map (Live Presence)
-- A real-time **spatial map** of friends listening nearby
-- **Real listening events ingestion** - see what people are actually playing (polls Spotify every 30s)
+- Real-time **spatial map** with 8 mock users
 - Pulsing avatar bubbles with mood-colored glows
-- Tap an avatar to see a **preview bubble** with track info and a "Tune In" action
-- **Nearby / Global** toggle to switch between local and worldwide views
-- Draggable **bottom sheet** with friends list, active rooms, and live stats
-- Gradient FAB to drop your own presence pin
-- **Mock locations** for testing (GPS integration ready for production)
+- Tap avatars to see track info and "Tune In"
+- Mock locations: Mumbai, Delhi, Bangalore, Tokyo, NYC, London
+- Auto-refreshes every 30 seconds
 
-### 📻 Rooms (Listening Rooms)
-- Browse and join shared listening rooms
-- Live participant counts with badge notifications
-
-### 📡 Discover
-- Grid view of rooms and new music drops
-- Filter by genre, mood, or activity
+### 📻 Listening Rooms
+- Join shared virtual listening rooms
+- Rotating vinyl record animation
+- Floating emoji reactions
+- Live participant counts
 
 ### 👤 Profile
-- Full user profile with avatar, bio, vibe badge, and follower/following stats
-- **Now Playing** card with animated waveform
-- **Weekly analytics** — hours listened, top genre, today's minutes
-- Top Tracks and Top Artists sections
-- Recent Rooms history
-- **Share Profile** card with QR code (exportable via `expo-media-library`)
-- Account settings and logout
+- User stats and listening history
+- QR code for profile sharing
+- Top tracks and artists
+- Weekly analytics
 
-### 🚀 Onboarding
-A 3-step animated onboarding flow:
-1. **Emotional Hook** — animated central hub with floating avatars and orbit rings
-2. **Connect Music** — Spotify and Apple Music platform connection
-3. **Choose Your Vibe** — initial mood selection
+### 🏠 Home
+- Set your vibe/mood
+- Browse recent rooms
+- Notification tray
+
+---
+
+## 🚀 Want Real Backend Later?
+
+This demo runs without a backend. To add real Spotify integration:
+
+- **See:** [DEPLOYMENT.md](./DEPLOYMENT.md) for backend setup
+- **Or:** Ask me to convert to Firebase (no server needed!)
 
 ---
 
@@ -126,86 +122,70 @@ All tokens live in `src/theme/index.ts`:
 
 ## Getting Started
 
-### Prerequisites
+### 🚀 **DEMO MODE - Super Quick Start!**
 
-- **Node.js ≥ 18** (required by Expo 55 and its CLI)
-- **Python 3.11+** for backend
-- **npm ≥ 9** or Yarn
-- Expo Go app on a physical device **or** Android/iOS simulator
-- **MongoDB** (Atlas free tier or local instance)
-- **Spotify Developer** account for API credentials
+**Just 2 commands:**
 
-> ⚠️ The project currently fails to start on Node 14 because `@expo/cli` uses modern JS syntax (`||=`). Upgrade Node first.
-
-### Local Development Setup
-
-#### Quick Start (Recommended)
 ```bash
-# Run the setup script
-./setup-local.sh
-
-# Follow the prompts to configure your .env files
-```
-
-#### Manual Setup
-
-**1. Backend Setup**
-```bash
-# Create virtual environment
-python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -r backend/requirements.txt
-
-# Create and configure .env
-cp backend/.env.example backend/.env
-# Edit backend/.env with your credentials
-
-# Generate secrets
-openssl rand -base64 32  # For JWT_SECRET
-openssl rand -base64 32  # For TOKEN_ENCRYPTION_KEY
-```
-
-**2. Frontend Setup**
-```bash
-# Install dependencies
+cd /app
 npm install
-
-# Create .env for local development
-echo "EXPO_PUBLIC_BACKEND_URL=http://localhost:8001" > .env
+npx expo start
 ```
+
+**Then:**
+1. Download **Expo Go** on your phone (App Store/Play Store)
+2. Scan the QR code
+3. **Done!** The app opens in 10 seconds 🎉
+
+**Or use the quick start script:**
+```bash
+./start-demo.sh
+```
+
+---
+
+### 📱 What Works in Demo Mode
+
+✅ **Beautiful UI** - All screens fully functional  
+✅ **Music Map** - 8 mock users "listening" in real-time  
+✅ **Listening Rooms** - Join virtual spaces with vinyl animations  
+✅ **Profile** - Stats, QR codes, top tracks  
+✅ **Onboarding** - Polished 3-step flow  
+
+❌ **No backend needed** - Everything is mocked!
+
+---
+
+### Prerequisites (If Not Installed)
+
+- **Node.js ≥ 18** - Download from https://nodejs.org
+- **Expo Go** app - Download from your phone's app store
 
 ### Run
 
-**Terminal 1 - Start Backend:**
+**Start the demo:**
 ```bash
-source venv/bin/activate  # Activate virtual environment
-cd backend
-uvicorn server:app --reload --host 0.0.0.0 --port 8001
-```
-
-**Terminal 2 - Start Frontend:**
-```bash
-# Start the Expo dev server (scan QR with Expo Go)
 npx expo start
-
-# Run directly on Android
-npx expo start --android
-
-# Run directly on iOS
-npx expo start --ios
 ```
 
-### Deploy to Production
+Or:
+```bash
+./start-demo.sh
+```
 
-See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed instructions on deploying to Fly.io with MongoDB Atlas.
+**Open on phone:**
+- Scan QR code with Expo Go app
 
-Quick summary:
-1. Set up MongoDB Atlas (free tier)
-2. Install Fly.io CLI: `curl -L https://fly.io/install.sh | sh`
-3. Configure secrets: `flyctl secrets set MONGO_URL="..."`
-4. Deploy: `flyctl deploy`
+**Open in browser:**
+- Press `w` key in terminal
+
+---
+
+## 📚 Documentation
+
+- **Quick Start:** [README_DEMO.md](./README_DEMO.md) - Demo guide with tips
+- **Full Features:** This README
+- **Backend Setup:** [DEPLOYMENT.md](./DEPLOYMENT.md) - If you want real Spotify later
 
 ---
 
