@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DropVibeModal } from '../components/DropVibeModal';
+import { DropDetailsModal } from '../components/DropDetailsModal';
 import { publicFetch } from '../state/publicApi';
 import { useListeningEvents, type ListeningEvent } from '../hooks/useListeningEvents';
 
@@ -619,6 +620,7 @@ export const LivePresenceScreen: React.FC = () => {
   const [dropModalOpen, setDropModalOpen] = useState(false);
   const [drops, setDrops] = useState<Drop[]>([]);
   const [selectedDropId, setSelectedDropId] = useState<string | null>(null);
+  const [selectedDropForDetails, setSelectedDropForDetails] = useState<any>(null);
   
   // Fetch real listening events
   const { events: listeningEvents, loading: eventsLoading } = useListeningEvents();
@@ -798,7 +800,20 @@ export const LivePresenceScreen: React.FC = () => {
           >
             <DropBubble
               drop={selectedDrop}
-              onWave={() => handleWave(selectedDrop.id)}
+              onWave={() => {
+                // Convert drop to format expected by DropDetailsModal
+                setSelectedDropForDetails({
+                  user: {
+                    name: selectedDrop.user.name,
+                    avatar: selectedDrop.user.avatar,
+                    handle: selectedDrop.user.handle,
+                  },
+                  track: selectedDrop.track,
+                  vibe: selectedDrop.mood,
+                  location: { city: 'Nearby' },
+                  timestamp: new Date().toISOString(),
+                });
+              }}
               onTune={() => handleTune(selectedDrop.id)}
             />
           </View>
@@ -831,6 +846,15 @@ export const LivePresenceScreen: React.FC = () => {
         onClose={() => setDropModalOpen(false)}
         onDropped={fetchDrops}
       />
+
+      {/* Drop Details Modal */}
+      {selectedDropForDetails && (
+        <DropDetailsModal
+          visible={!!selectedDropForDetails}
+          onClose={() => setSelectedDropForDetails(null)}
+          drop={selectedDropForDetails}
+        />
+      )}
 
       {/* Bottom Sheet */}
       <BottomSheet insets={insets} />

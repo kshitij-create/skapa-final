@@ -39,6 +39,8 @@ import { useRoomSocket } from '../hooks/useRoomSocket';
 import { getOrCreateIdentity, Identity } from '../state/identity';
 import { RoomOrbit } from '../components/RoomOrbit';
 import { FloatingReaction } from '../components/FloatingReaction';
+import { ChatPanel } from '../components/ChatPanel';
+import { EnhancedReactionBar } from '../components/EnhancedReactionBar';
 
 const QUICK_REACTIONS = ['🔥', '❤️', '🎉', '🙌', '😭', '🤘', '💫', '🌙'];
 
@@ -107,6 +109,8 @@ const RoomBody: React.FC<{
     sendReaction,
     dropReaction,
   } = useRoomSocket({ code, user: me, wsBase });
+
+  const [chatVisible, setChatVisible] = useState(false);
 
   // Vinyl rotation
   const rot = useSharedValue(0);
@@ -186,9 +190,14 @@ const RoomBody: React.FC<{
             <Text style={styles.code}>ROOM · {code}</Text>
           </View>
 
-          <TouchableOpacity onPress={onShare} style={styles.topIconBtn}>
-            <Ionicons name="share-outline" size={20} color="#fff" />
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <TouchableOpacity onPress={() => setChatVisible(true)} style={styles.topIconBtn}>
+              <Ionicons name="chatbubbles-outline" size={20} color="#fff" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={onShare} style={styles.topIconBtn}>
+              <Ionicons name="share-outline" size={20} color="#fff" />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Loading / error */}
@@ -294,20 +303,20 @@ const RoomBody: React.FC<{
             )}
 
             {/* Reaction bar */}
-            <Animated.View entering={FadeIn.delay(200)} style={styles.reactionBar}>
-              {QUICK_REACTIONS.map((em, i) => (
-                <TouchableOpacity
-                  key={em}
-                  onPress={() => sendReaction(em)}
-                  activeOpacity={0.6}
-                  style={styles.reactionBtn}
-                >
-                  <Text style={styles.reactionEmoji}>{em}</Text>
-                </TouchableOpacity>
-              ))}
-            </Animated.View>
+            <EnhancedReactionBar
+              onReact={(emoji, label) => {
+                sendReaction(emoji);
+              }}
+            />
           </>
         )}
+
+        {/* Chat Panel */}
+        <ChatPanel
+          visible={chatVisible}
+          onClose={() => setChatVisible(false)}
+          roomCode={code}
+        />
       </SafeAreaView>
     </View>
   );
